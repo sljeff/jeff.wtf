@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+
+    
+    
+    
+    
+  <url>
+    <loc>https://jeff.wtf/2016/12/think-os/</loc>
+    <lastmod>2019-01-28T07:31:30.744Z</lastmod>
+    <data>
+        <display>
+        <title>看操作系统有感：战略上的勤奋</title>
+        <pubTime>2016-12-20T08:15:02.000Z</pubTime>
+        
+         
+           
+             
+              <breadCrumb title="计算机" url="https://jeff.wtf/categories/%E8%AE%A1%E7%AE%97%E6%9C%BA/"/>
+          
+        </display>
+    </data>
+    </url>
+
+    
+  <url>
+    <loc>https://jeff.wtf/2018/08/the-critics/</loc>
+    <lastmod>2019-01-28T07:31:30.742Z</lastmod>
+    <data>
+        <display>
+        <title>批评者和被批评者的消亡</title>
+        <pubTime>2018-08-04T16:03:26.000Z</pubTime>
+        
+         
+           
+             
+              <breadCrumb title="随笔" url="https://jeff.wtf/categories/%E9%9A%8F%E7%AC%94/"/>
+          
+        </display>
+    </data>
+    </url>
+
+    
+  <url>
+    <loc>https://jeff.wtf/2018/02/person-history/</loc>
+    <lastmod>2019-01-28T07:31:30.740Z</lastmod>
+    <data>
+        <display>
+        <title>个人的奋斗，历史的进程</title>
+        <pubTime>2018-02-11T02:53:04.000Z</pubTime>
+        
+         
+           
+             
+              <breadCrumb title="随笔" url="https://jeff.wtf/categories/%E9%9A%8F%E7%AC%94/"/>
+          
+        </display>
+    </data>
+    </url>
+
+    
+  <url>
+    <loc>https://jeff.wtf/2016/11/local-var-in-python-closure/</loc>
+    <lastmod>2019-01-28T07:31:30.736Z</lastmod>
+    <data>
+        <display>
+        <title>局部变量在Python闭包中遇到的一些麻烦</title>
+        <pubTime>2016-11-20T06:08:30.000Z</pubTime>
+        
+         
+           
+             
+              <breadCrumb title="编程" url="https://jeff.wtf/categories/%E7%BC%96%E7%A8%8B/"/>
+          
+        </display>
+    </data>
+    </url>
+
+    
+  <url>
+    <loc>https://jeff.wtf/2017/11/jeff-wtf-first/</loc>
+    <lastmod>2019-01-28T07:31:30.735Z</lastmod>
+    <data>
+        <display>
+        <title>jeff.wtf的第一篇文章</title>
+        <pubTime>2017-11-25T16:19:13.000Z</pubTime>
+        
+         
+           
+             
+              <breadCrumb title="随笔" url="https://jeff.wtf/categories/%E9%9A%8F%E7%AC%94/"/>
+          
+        </display>
+    </data>
+    </url>
+
+    
+  <url>
+    <loc>https://jeff.wtf/2018/07/complexity/</loc>
+    <lastmod>2019-01-28T07:31:30.734Z</lastmod>
+    <data>
+        <display>
+        <title>事情的复杂性</title>
+        <pubTime>2018-07-26T16:25:50.000Z</pubTime>
+        
+         
+           
+             
+              <breadCrumb title="随笔" url="https://jeff.wtf/categories/%E9%9A%8F%E7%AC%94/"/>
+          
+        </display>
+    </data>
+    </url>
+
+    
+  <url>
+    <loc>https://jeff.wtf/2016/11/get-bilibili-user/</loc>
+    <lastmod>2019-01-28T07:31:30.734Z</lastmod>
+    <data>
+        <display>
+        <title>通过弹幕信息得到Bilibili用户的ID</title>
+        <pubTime>2016-11-19T13:15:10.000Z</pubTime>
+        
+         
+           
+             
+              <breadCrumb title="随笔" url="https://jeff.wtf/categories/%E9%9A%8F%E7%AC%94/"/>
+          
+        </display>
+    </data>
+    </url>
+
+    
+  <url>
+    <loc>https://jeff.wtf/2016/12/diogenes/</loc>
+    <lastmod>2019-01-28T07:31:30.734Z</lastmod>
+    <data>
+        <display>
+        <title>老人的囤积综合征</title>
+        <pubTime>2016-12-23T06:59:09.000Z</pubTime>
+        
+         
+           
+             
+              <breadCrumb title="随笔" url="https://jeff.wtf/categories/%E9%9A%8F%E7%AC%94/"/>
+          
+        </display>
+    </data>
+    </url>
+
+    
+  <url>
+    <loc>https://jeff.wtf/2017/02/IO-multiplexing/</loc>
+    <lastmod>2019-01-28T07:31:30.734Z</lastmod>
+    <data>
+        <display>
+        <title>I/O 多路复用入门——select/poll/epoll</title>
+        <pubTime>2017-02-11T12:43:14.000Z</pubTime>
+        
+         
+           
+             
+              <breadCrumb title="编程" url="https://jeff.wtf/categories/%E7%BC%96%E7%A8%8B/"/>
+          
+        </display>
+    </data>
+    </url>
+
+    
+</urlset>
