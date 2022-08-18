@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang=zh>
+<head>
+  <meta name="google-site-verification" content="jLSaKkds3SJ5CrLC_nBgQBuTYheX3qN7bD-J_XH8vG0" />
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, minimal-ui">
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="Cache-Control" content="no-transform" />
+  <meta http-equiv="Cache-Control" content="no-siteapp" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="format-detection" content="telephone=no,email=no,adress=no">
+  <!-- Color theme for statusbar -->
+  <meta name="theme-color" content="#000000" />
+  <!-- 强制页面在当前窗口以独立页面显示,防止别人在框架里调用页面 -->
+  <meta http-equiv="window-target" content="_top" />
+  
+  
+  <title>需求：给网站绑一万个域名，自动生成 HTTPS 证书 | 善良的杰夫</title>
+  <meta name="description" content="先解决标题党的问题 实际需求和标题有些差异，但很难在一个短标题里描述出完整的需求。先把这个标题相关的问题解决好了。  如果是一万个已知的域名，想要给他们批量签证书：例如已经存在一个域名列表（听起来有点灰产）。那么需要做的应该是：  用脚本批量给他们做好 DNS 解析 比如都解析到 IP w.x.y.z   在 w.x.y.z 起服务，用来做 HTTP Challenge 启动一个 cert-man">
+<meta property="og:type" content="article">
+<meta property="og:title" content="需求：给网站绑一万个域名，自动生成 HTTPS 证书">
+<meta property="og:url" content="https://jeff.wtf/2022/08/tens-of-thousands-of-domains-over-https/index.html">
+<meta property="og:site_name" content="善良的杰夫">
+<meta property="og:description" content="先解决标题党的问题 实际需求和标题有些差异，但很难在一个短标题里描述出完整的需求。先把这个标题相关的问题解决好了。  如果是一万个已知的域名，想要给他们批量签证书：例如已经存在一个域名列表（听起来有点灰产）。那么需要做的应该是：  用脚本批量给他们做好 DNS 解析 比如都解析到 IP w.x.y.z   在 w.x.y.z 起服务，用来做 HTTP Challenge 启动一个 cert-man">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2022-08-18T13:43:23.000Z">
+<meta property="article:modified_time" content="2022-08-18T16:36:18.938Z">
+<meta property="article:author" content="Jeff">
+<meta name="twitter:card" content="summary">
+  <!-- Canonical links -->
+  <link rel="canonical" href="https://jeff.wtf/2022/08/tens-of-thousands-of-domains-over-https/index.html">
+  
+    <link rel="alternate" href="/atom.xml" title="善良的杰夫" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+<link rel="stylesheet" href="/css/typo.css">
+
+  
+  
+  
+  
+<meta name="generator" content="Hexo 6.2.0"></head>
+
+
+<body class="main-center theme-green typo" itemscope itemtype="http://schema.org/WebPage">
+  <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+  <div class="slimContent">
+    <div class="navbar-header">
+      
+      
+      <div class="profile-block text-center">
+        <a id="avatar" href="https://jeff.wtf" target="_blank">
+          <img class="img-circle img-rotate" src="/images/avatar.jpg" width="200" height="200">
+        </a>
+        <h2 id="name" class="hidden-xs hidden-sm">善良的杰夫</h2>
+        <h3 id="title" class="hidden-xs hidden-sm hidden-md">后端+运维工程师 Python/Golang/k8s</h3>
+        <small id="location" class="text-muted hidden-xs hidden-sm"><i class="icon icon-map-marker"></i> Nanjing, China</small>
+      </div>
+      
+      <div class="search" id="search-form-wrap">
+
+    <form class="search-form sidebar-form">
+        <div class="input-group">
+            <input type="text" class="search-form-input form-control" placeholder="搜索" />
+            <span class="input-group-btn">
+                <button type="submit" class="search-form-submit btn btn-flat" onclick="return false;"><i class="icon icon-search"></i></button>
+            </span>
+        </div>
+    </form>
+    <div class="ins-search">
+  <div class="ins-search-mask"></div>
+  <div class="ins-search-container">
+    <div class="ins-input-wrapper">
+      <input type="text" class="ins-search-input" placeholder="想要查找什么..." x-webkit-speech />
+      <button type="button" class="close ins-close ins-selectable" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button>
+    </div>
+    <div class="ins-section-wrapper">
+      <div class="ins-section-container"></div>
+    </div>
+  </div>
+</div>
+
+
+</div>
+      <button class="navbar-toggle collapsed" type="button" data-toggle="collapse" data-target="#main-navbar" aria-controls="main-navbar" aria-expanded="false">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+    </div>
+    <nav id="main-navbar" class="collapse navbar-collapse" itemscope itemtype="http://schema.org/SiteNavigationElement" role="navigation">
+      <ul class="nav navbar-nav main-nav ">
+        
+        
+        <li class="menu-item menu-item-home">
+          <a href="/.">
+            
+            <i class="icon icon-home-fill"></i>
+            
+            <span class="menu-title">首页</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives">
+            
+            <i class="icon icon-archives-fill"></i>
+            
+            <span class="menu-title">归档</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories">
+            
+            <i class="icon icon-folder"></i>
+            
+            <span class="menu-title">分类</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-repository">
+          <a href="/repository">
+            
+            <i class="icon icon-project"></i>
+            
+            <span class="menu-title">项目</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about">
+            
+            <i class="icon icon-cup-fill"></i>
+            
+            <span class="menu-title">关于</span>
+          </a>
+        </li>
+        
+      </ul>
+      
+	
+    <ul class="social-links">
+    	
+        <li><a href="https://github.com/sljeff" target="_blank" title="Github" data-toggle=tooltip data-placement=top><i class="icon icon-github"></i></a></li>
+        
+        <li><a href="/atom.xml" target="_blank" title="Rss" data-toggle=tooltip data-placement=top><i class="icon icon-rss"></i></a></li>
+        
+    </ul>
+
+    </nav>
+  </div>
+</header>
+
+  
+    <aside class="sidebar" itemscope itemtype="http://schema.org/WPSideBar">
+  <div class="slimContent">
+    
+      <div class="widget">
+    <h3 class="widget-title">公告</h3>
+    <div class="widget-body">
+        <div id="board">
+            <div class="content">
+                <b>一个脱离低级趣味的人</b>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">分类</h3>
+    <div class="widget-body">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/%E7%BC%96%E7%A8%8B/">编程</a><span class="category-list-count">3</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E8%AE%A1%E7%AE%97%E6%9C%BA/">计算机</a><span class="category-list-count">1</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E9%9A%8F%E7%AC%94/">随笔</a><span class="category-list-count">11</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">归档</h3>
+    <div class="widget-body">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2022/08/">八月 2022</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2021/06/">六月 2021</a><span class="archive-list-count">2</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2020/06/">六月 2020</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2020/04/">四月 2020</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/08/">八月 2018</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/07/">七月 2018</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/02/">二月 2018</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/11/">十一月 2017</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/02/">二月 2017</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2016/12/">十二月 2016</a><span class="archive-list-count">2</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2016/11/">十一月 2016</a><span class="archive-list-count">2</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2015/09/">九月 2015</a><span class="archive-list-count">1</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">最新文章</h3>
+    <div class="widget-body">
+      <ul class="recent-post-list list-unstyled no-thumbnail">
+        
+          <li>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/%E9%9A%8F%E7%AC%94/">随笔</a>
+              </p>
+              <p class="item-title">
+                <a href="/2022/08/tens-of-thousands-of-domains-over-https/" class="title">需求：给网站绑一万个域名，自动生成 HTTPS 证书</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2022-08-18T13:43:23.000Z" itemprop="datePublished">2022-08-18</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/%E9%9A%8F%E7%AC%94/">随笔</a>
+              </p>
+              <p class="item-title">
+                <a href="/2021/06/secondary-school-days-with-programming/" class="title">回忆我中学时代的技术</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2021-06-29T14:16:09.000Z" itemprop="datePublished">2021-06-29</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/%E9%9A%8F%E7%AC%94/">随笔</a>
+              </p>
+              <p class="item-title">
+                <a href="/2021/06/HDMI-DP-ZH110/" class="title">HDMI 转 DP 方案之毕亚兹 ZH110 使用评测</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2021-06-08T06:38:00.000Z" itemprop="datePublished">2021-06-08</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/%E9%9A%8F%E7%AC%94/">随笔</a>
+              </p>
+              <p class="item-title">
+                <a href="/2020/06/vscode-remote-debug/" class="title">如何使用vscode远程debug项目</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2020-06-14T11:03:45.000Z" itemprop="datePublished">2020-06-14</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/%E7%BC%96%E7%A8%8B/">编程</a>
+              </p>
+              <p class="item-title">
+                <a href="/2020/04/regression-testing/" class="title">用go重写项目之后，我们这样做回归测试</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2020-04-12T06:26:24.000Z" itemprop="datePublished">2020-04-12</time>
+              </p>
+            </div>
+          </li>
+          
+      </ul>
+    </div>
+  </div>
+  
+
+    
+  </div>
+</aside>
+
+  
+  
+<aside class="sidebar sidebar-toc collapse" id="collapseToc" itemscope itemtype="http://schema.org/WPSideBar">
+  <div class="slimContent">
+    <nav id="toc" class="article-toc">
+      <h3 class="toc-title">文章目录</h3>
+      <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%85%88%E8%A7%A3%E5%86%B3%E6%A0%87%E9%A2%98%E5%85%9A%E7%9A%84%E9%97%AE%E9%A2%98"><span class="toc-number">1.</span> <span class="toc-text">先解决标题党的问题</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%9C%9F%E5%AE%9E%E7%9A%84%E9%9C%80%E6%B1%82"><span class="toc-number">2.</span> <span class="toc-text">真实的需求</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#cert-manager%E2%9D%8E"><span class="toc-number">2.1.</span> <span class="toc-text">cert-manager❎</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%93%AA%E9%87%8C%E4%B8%8D%E5%AF%B9%E5%8A%B2%EF%BC%9F"><span class="toc-number">2.1.1.</span> <span class="toc-text">哪里不对劲？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E5%8F%AA%E8%83%BD%E8%AE%A9%E7%BD%91%E5%85%B3%E6%9D%A5%E5%8F%91%E8%B5%B7%E7%AD%BE%E8%AF%81%E4%B9%A6%EF%BC%9F"><span class="toc-number">2.2.</span> <span class="toc-text">为什么只能让网关来发起签证书？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Traefik%E2%9D%8E"><span class="toc-number">2.3.</span> <span class="toc-text">Traefik❎</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%93%AA%E9%87%8C%E4%B8%8D%E5%AF%B9%E5%8A%B2%EF%BC%9F-1"><span class="toc-number">2.3.1.</span> <span class="toc-text">哪里不对劲？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Caddy%E2%9C%85%EF%B8%8F"><span class="toc-number">2.4.</span> <span class="toc-text">Caddy✅️</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9C%80%E5%90%8E%E4%B8%80%E7%82%B9%E5%B0%8F%E4%BC%98%E5%8C%96"><span class="toc-number">2.4.1.</span> <span class="toc-text">最后一点小优化</span></a></li></ol></li></ol></li></ol>
+    </nav>
+  </div>
+</aside>
+
+<main class="main" role="main">
+  <div class="content">
+  <article id="post-tens-of-thousands-of-domains-over-https" class="article article-type-post" itemscope itemtype="http://schema.org/BlogPosting">
+    
+    <div class="article-header">
+      
+        
+  
+    <h1 class="article-title" itemprop="name">
+      需求：给网站绑一万个域名，自动生成 HTTPS 证书
+    </h1>
+  
+
+      
+      <div class="article-meta">
+        <span class="article-date">
+    <i class="icon icon-calendar-check"></i>
+	<a href="/2022/08/tens-of-thousands-of-domains-over-https/" class="article-date">
+	  <time datetime="2022-08-18T13:43:23.000Z" itemprop="datePublished">2022-08-18</time>
+	</a>
+</span>
+        
+  <span class="article-category">
+    <i class="icon icon-folder"></i>
+    <a class="article-category-link" href="/categories/%E9%9A%8F%E7%AC%94/">随笔</a>
+  </span>
+
+        
+
+        
+
+        <span class="post-comment"><i class="icon icon-comment"></i> <a href="/2022/08/tens-of-thousands-of-domains-over-https/#comments" class="article-comment-link">评论</a></span>
+        
+      </div>
+    </div>
+    <div class="article-entry marked-body" itemprop="articleBody">
+      
+        <h1 id="先解决标题党的问题"><a href="#先解决标题党的问题" class="headerlink" title="先解决标题党的问题"></a>先解决标题党的问题</h1><blockquote>
+<p>实际需求和标题有些差异，但很难在一个短标题里描述出完整的需求。先把这个标题相关的问题解决好了。</p>
+</blockquote>
+<p>如果是一万个已知的域名，想要给他们批量签证书：例如已经存在一个域名列表（听起来有点灰产）。那么需要做的应该是：</p>
+<ol>
+<li>用脚本批量给他们做好 DNS 解析<ul>
+<li>比如都解析到 IP <code>w.x.y.z</code></li>
+</ul>
+</li>
+<li>在 <code>w.x.y.z</code> 起服务，用来做 <a target="_blank" rel="noopener" href="https://letsencrypt.org/docs/challenge-types/#http-01-challenge">HTTP Challenge</a><ul>
+<li>启动一个 <a target="_blank" rel="noopener" href="https://cert-manager.io/">cert-manager</a>，把一万个域名灌给它，让他开始签证书</li>
+</ul>
+</li>
+<li>网关监听 443，并挂上 cert-manager 产生的公私钥<ul>
+<li>取决于网关的功能，如果网关要求写清楚每一个域名，用脚本自动生成一万个路由配置即可</li>
+</ul>
+</li>
+</ol>
+<p>听起来很不优雅，但「又不是不能用.jpg」；毕竟它只是个一次性的任务，能离线完成的任务当然是离线完成更安全。</p>
+<h1 id="真实的需求"><a href="#真实的需求" class="headerlink" title="真实的需求"></a>真实的需求</h1><p>真实的需求是：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://xlog.app/">xlog</a> 是一个基于 crossbell 链的写作平台</li>
+<li>用户可以产生自定义的二级域名如 <code>jeff.xlog.app</code></li>
+<li><strong>并且，用户可以绑定自己的任意域名到自己的主页</strong><ul>
+<li>例如 <code>x.jeff.wtf</code></li>
+</ul>
+</li>
+<li>用户绑定好、DNS 指向 xlog 以后，可以自动签发 HTTPS 证书；访问时全程 HTTPS</li>
+</ul>
+<h2 id="cert-manager❎"><a href="#cert-manager❎" class="headerlink" title="cert-manager❎"></a>cert-manager❎</h2><p>首先还是来看看老办法 cert-manager 。</p>
+<p>顺着上面的思路，一个很直接的想法就是：</p>
+<ol>
+<li>用户在 xlog.app 面板操作绑定完成时，把这个想绑定的域名发给 cert-manager，让它开始签发证书</li>
+<li>得到证书以后，修改网关配置并 reload （取决于使用的网关）</li>
+<li>用户来访问时，网关已经拥有了签好的证书，于是直接建立了 HTTPS 链接</li>
+</ol>
+<p>除了 <strong>业务（xlog）</strong> 和 <strong>基建（cert-manager）</strong> 有一点小小的耦合以外，貌似没有什么大问题。</p>
+<h3 id="哪里不对劲？"><a href="#哪里不对劲？" class="headerlink" title="哪里不对劲？"></a><span style="color:green">哪里不对劲？</span></h3><p>不对劲的地方在于，用户修改 DNS 解析这一步在哪里？</p>
+<p>上面这个方案错误的地方是<strong>签发的时机</strong>：</p>
+<ul>
+<li>如果用户还没有解析完成，cert-manager 根本无法通过 HTTP-Challenge</li>
+<li>cert-manager 怎么知道域名已经解析过来了？<ul>
+<li>最简单的答案是：如果有一个 <code>Host: 想绑的域名</code> 的请求发到了 xlog 的地址，这时我们认为这是用户的第一次访问，此时已经解析完成<ul>
+<li>（虽然很容易作假，但我们并不会损失什么）</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p>所以签发的时机只能是等到用户来请求。如果等到请求已经到了，我们再去做这些事：</p>
+<ul>
+<li>发域名给 cert-manager 签证书</li>
+<li>签完证书改配让网关 reload<ul>
+<li>如果为了高可用，网关数量大于一，则是等所有网关 reload 完成</li>
+</ul>
+</li>
+</ul>
+<p>这就意味着用户的头几个（或者更多）请求一定是失败的。即使用一点小小的优化比如定时循环尝试证书签发，这个时间也不太可控。</p>
+<h2 id="为什么只能让网关来发起签证书？"><a href="#为什么只能让网关来发起签证书？" class="headerlink" title="为什么只能让网关来发起签证书？"></a>为什么只能让网关来发起签证书？</h2><p>作为对上面的补充说明，可以想象这样一个场景：</p>
+<ol>
+<li>用户在 xlog 面板绑定了自己的域名</li>
+<li>但他一直没有改 DNS 解析</li>
+<li>直到某一天，他突然想起来，于是去做了解析</li>
+<li>解析生效后，他访问网站，此时应该正常建立 HTTPS 链接</li>
+</ol>
+<p>如果使用类似「定时尝试签发证书」这样的方案，大量资源被浪费；而且这是一种很明显可以被攻击的漏洞：我只要不断绑定域名，但不做解析，服务器就会有无限的资源被浪费。</p>
+<p>所以，触发签发的时机必须是 <strong>网关第一次收到这个域名作为 Host 的请求</strong>。</p>
+<h2 id="Traefik❎"><a href="#Traefik❎" class="headerlink" title="Traefik❎"></a><a target="_blank" rel="noopener" href="https://doc.traefik.io/traefik/https/tls/">Traefik</a>❎</h2><blockquote>
+<p>补充说明：</p>
+<p>虽然提起自动签 HTTPS 证书的 web server，第一个能想到的通常是 Caddy。但是我们正在使用的网关是 Traefik，理由是：</p>
+<ol>
+<li>Traefik 原生自带一个 Kubernetes Ingress Controller，天然支持 k8s</li>
+<li>Traefik-Mesh 可以非常方便地完成 k8s 集群内的 Service Mesh</li>
+<li>从开始调研 k8s 网关的那天到写文章的这一天，Caddy 的 <a target="_blank" rel="noopener" href="https://github.com/caddyserver/ingress">Ingress Controller</a> 仍然是 WIP 状态。如果想要在 k8s 集群里使用，要么使用 WIP 版本，要么自己开发 Ingress Controller</li>
+</ol>
+</blockquote>
+<blockquote>
+<p>防时空穿越的补充说明：写文章时，Traefik 版本号为 v2.8.3</p>
+</blockquote>
+<p>恰好 Traefik 有自动签发证书功能。于是乎先调研一下 Traefik 符不符合这个需求。</p>
+<p>Traefik 自动签发证书的设定是这样，启用以后：</p>
+<ol>
+<li>用户写路由规则 (IngressRoute)，Traefik 会读取配置 <code>tls.domain</code> 或者是匹配规则的 <code>Host</code> 部分</li>
+<li>Traefik 根据 IngressRoute 自动尝试签发、续期等</li>
+</ol>
+<hr>
+<p>按照上面的设定，我们要做的应该是：</p>
+<ol>
+<li>用户在 xlog 绑定好域名后，创建一个 IngressRoute</li>
+<li>等等，好像不太对！这个逻辑不就和发给 cert-manager 一样了么？</li>
+</ol>
+<p>那我们换一种：</p>
+<ul>
+<li>我们编写一个 Traefik Middleware，使得某个域名解析完成第一次访问到 Traefik 时，自动创建 IngressRoute 来让它签发证书</li>
+</ul>
+<p>虽然有点别扭，弯弯绕绕有点多，但功能上好像挺完美的；只有一些（或许）可以忍受的小缺点：</p>
+<ol>
+<li>需要编写一个 Middleware，并且运行一个服务<ul>
+<li>逻辑大概是：验证域名有没有绑过 -&gt; 创建 IngressRoute</li>
+<li>如果想用网关安全的自动签发证书，这样的逻辑应该是不可避免的</li>
+</ul>
+</li>
+<li>至少第一次来访问仍然是失败或者非 HTTPS 的</li>
+</ol>
+<h3 id="哪里不对劲？-1"><a href="#哪里不对劲？-1" class="headerlink" title="哪里不对劲？"></a><span style="color:green">哪里不对劲？</span></h3><p>不对劲就在于 Traefik 的自动签证书功能可以看做一个玩具：</p>
+<ul>
+<li>在这个如果没有逐条看都发现不了的<a target="_blank" rel="noopener" href="https://doc.traefik.io/traefik/v2.8/providers/kubernetes-crd/#letsencrypt-support-with-the-custom-resource-definition-provider">文档</a>里，说明了 Traefik 2.0 被设定为一个完全无状态的服务，多个 Traefik 之间并不共享什么东西。因此，如果要管理证书，它必须是一个单点（或者你可以花钱买企业版）。<ul>
+<li>这段文字并不在 <code>TLS</code> &#x2F; <code>Let&#39;s Encrypt</code> &#x2F; <code>Kubernetes and Let&#39;s Encrypt</code> 这些标题下面，而是在介绍 IngressRoute 的文档里</li>
+<li>这也是 Traefik 的 ratelimit 相当难算的原因，你必须知道集群里现在运行了几个 Traefik，然后靠概率模拟计算</li>
+</ul>
+</li>
+</ul>
+<p>我们为什么要花钱买一个很别扭的方案？</p>
+<h2 id="Caddy✅️"><a href="#Caddy✅️" class="headerlink" title="Caddy✅️"></a><a target="_blank" rel="noopener" href="https://caddyserver.com/docs/automatic-https">Caddy</a>✅️</h2><p>最后，还得是 Caddy。</p>
+<p>它有两种自动签发证书的逻辑：</p>
+<ol>
+<li>第一种是常用的，明确域名的模式：<ol>
+<li>必须先把域名解析完成</li>
+<li>再启动 caddy，配置文件里要写明监听的域名</li>
+<li>启动后，caddy 会立即签好证书，用户来访问直接就是可用的</li>
+</ol>
+</li>
+<li>第二种按需模式：<ol>
+<li>只要启用，来一个域名就签一个</li>
+</ol>
+</li>
+</ol>
+<p>我们需要第二种，它的缺点是：</p>
+<ol>
+<li>第一次访问会比较慢（要签证书）</li>
+<li>有安全风险，很容易成为被攻击的入口<ul>
+<li>因此 caddy 要求，生产环境应该提供一个 <code>ask</code> 配置，询问一个 HTTP 接口，得到应不应该签发的响应</li>
+</ul>
+</li>
+<li>默认情况下，caddy (当前 v2.5.2) 需要给每个实例配置一个 data 的<a target="_blank" rel="noopener" href="https://caddyserver.com/docs/conventions#data-directory">持久化</a>目录，也就意味着默认存储配置下它也必须是个单点<ul>
+<li>好在有第三方的存储插件可以让多个 caddy 实例读写同一处存储</li>
+</ul>
+</li>
+</ol>
+<hr>
+<p>为了解决问题 2，我们要写一个简单的 HTTP 服务用来校验域名（是否解析好、是否绑定过等）；为了解决问题 3，我们必须自己编译 caddy：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># caddy-tlsredis 这个插件会把数据放在 redis 里，让多个 caddy 实例共享以达到高可用</span></span><br><span class="line"><span class="comment"># 可以在这里直接用打包好的镜像 https://github.com/sljeff/caddy-tlsredis-docker</span></span><br><span class="line">xcaddy build --with github.com/gamalan/caddy-tlsredis</span><br></pre></td></tr></table></figure>
+
+<p>然后我们的 Caddyfile 会是这样</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">        storage redis &#123;</span><br><span class="line">                # 存储改为 redis，这里可以为空，然后通过环境变量来覆盖配置</span><br><span class="line">                # 详见 https://github.com/gamalan/caddy-tlsredis</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        on_demand_tls &#123;</span><br><span class="line">                # 这里是我们写好的验证服务，可以和每份 caddy 一起部署</span><br><span class="line">                ask http://localhost:5000/</span><br><span class="line">        &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">:80, :443 &#123;</span><br><span class="line">        tls &#123;</span><br><span class="line">                # 自动按需签发</span><br><span class="line">                on_demand</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        # 这里是实际的上游服务</span><br><span class="line">        reverse_proxy 127.0.0.1:3000</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这样就实现了来一个域名签一个证书；缺点是第一次来会比较慢。</p>
+<h3 id="最后一点小优化"><a href="#最后一点小优化" class="headerlink" title="最后一点小优化"></a><span style="color:green">最后一点小优化</span></h3><p>回顾一下我们的需求，里面有一条：</p>
+<ul>
+<li>用户可以产生自定义的二级域名如 <code>jeff.xlog.app</code></li>
+</ul>
+<p>这就意味着所有用户都会产生一个二级域名；如果我们给每个二级域名都单独签发一个证书，好像浪费有点多。</p>
+<p>更合理的做法是给 *.xlog.app 签发泛域名证。但是泛域名证书需要 DNS-challenge（证明整个域名的所有权），因此我们要更新 caddy 配置：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 需要把 xlog.app 的 dns 服务商的插件也加进去编译，以便签发和续期泛域名证书</span></span><br><span class="line">xcaddy build --with github.com/gamalan/caddy-tlsredis --with github.com/caddy-dns/cloudflare</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"># Caddyfile 中间加这一段匹配，让其余的走到 :80, :443</span><br><span class="line"></span><br><span class="line">xlog.app, *.xlog.app &#123;</span><br><span class="line">        tls &#123;</span><br><span class="line">                dns cloudflare &#123;env.CF_API_TOKEN&#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        reverse_proxy 127.0.0.1:3000</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<hr>
+<p>最后，大功告成。</p>
+
+      
+    </div>
+    <div class="article-footer">
+      <!--
+<blockquote class="mt-2x">
+  <ul class="post-copyright list-unstyled">
+    
+    <li class="post-copyright-link hidden-xs">
+      <strong>本文链接：</strong>
+      <a href="https://jeff.wtf/2022/08/tens-of-thousands-of-domains-over-https/" title="需求：给网站绑一万个域名，自动生成 HTTPS 证书" target="_blank" rel="external">https://jeff.wtf/2022/08/tens-of-thousands-of-domains-over-https/</a>
+    </li>
+    
+    <li class="post-copyright-license">
+      <strong>版权声明： </strong> 本博客所有文章除特别声明外，均采用 <a href="http://creativecommons.org/licenses/by/4.0/deed.zh" target="_blank" rel="external">CC BY 4.0 CN协议</a> 许可协议。转载请注明出处！
+    </li>
+  </ul>
+</blockquote>
+-->
+
+
+<div class="panel panel-default panel-badger">
+  <div class="panel-body">
+    <figure class="media">
+      <div class="media-left">
+        <a href="https://jeff.wtf" target="_blank" class="img-burn thumb-sm visible-lg">
+          <img src="/images/avatar.jpg" class="img-rounded w-full" alt="">
+        </a>
+      </div>
+      <div class="media-body">
+        <h4 class="media-heading"><a href="https://jeff.wtf" target="_blank"><span class="text-dark">善良的杰夫</span><small class="ml-1x">后端+运维工程师 Python/Golang/k8s</small></a></h4>
+        <small>一个脱离低级趣味的人。</small>
+      </div>
+    </figure>
+  </div>
+</div>
+
+
+    </div>
+  </article>
+  
+    
+  <section id="comments">
+  	
+      <div id="disqus_thread">
+        <noscript>Please enable JavaScript to view the <a target="_blank" rel="noopener" href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+      </div>
+    
+  </section>
+
+
+  
+</div>
+
+  <nav class="bar bar-footer clearfix" data-stick-bottom>
+  <div class="bar-inner">
+  
+  <ul class="pager pull-left">
+    
+    
+    <li class="next">
+      <a href="/2021/06/secondary-school-days-with-programming/" title="回忆我中学时代的技术"><span>下一篇&nbsp;&nbsp;</span><i class="icon icon-angle-right" aria-hidden="true"></i></a>
+    </li>
+    
+    
+    <li class="toggle-toc">
+      <a class="toggle-btn collapsed" data-toggle="collapse" href="#collapseToc" aria-expanded="false" title="文章目录" role="button">
+        <span>[&nbsp;</span><span>文章目录</span>
+        <i class="text-collapsed icon icon-anchor"></i>
+        <i class="text-in icon icon-close"></i>
+        <span>]</span>
+      </a>
+    </li>
+    
+  </ul>
+  
+  
+  
+  <div class="bar-right">
+    
+    <div class="share-component" data-sites="weibo,qq,wechat,facebook,twitter" data-mobile-sites="weibo,qq,qzone"></div>
+    
+  </div>
+  </div>
+</nav>
+  
+
+
+
+</main>
+
+  <footer class="footer" itemscope itemtype="http://schema.org/WPFooter">
+	
+	
+    <ul class="social-links">
+    	
+        <li><a href="https://github.com/sljeff" target="_blank" title="Github" data-toggle=tooltip data-placement=top><i class="icon icon-github"></i></a></li>
+        
+        <li><a href="/atom.xml" target="_blank" title="Rss" data-toggle=tooltip data-placement=top><i class="icon icon-rss"></i></a></li>
+        
+    </ul>
+
+    <div class="copyright">
+    	
+        <div class="publishby">
+        	Theme by <a href="https://github.com/cofess" target="_blank"> cofess </a>base on <a href="https://github.com/cofess/hexo-theme-pure" target="_blank">pure</a>.
+        </div>
+    </div>
+</footer>
+  <script src="//cdn.jsdelivr.net/npm/jquery@1.12.4/dist/jquery.min.js"></script>
+<script>
+window.jQuery || document.write('<script src="js/jquery.min.js"><\/script>')
+</script>
+
+<script src="/js/plugin.min.js"></script>
+
+
+<script src="/js/application.js"></script>
+
+
+    <script>
+(function (window) {
+    var INSIGHT_CONFIG = {
+        TRANSLATION: {
+            POSTS: '文章',
+            PAGES: '页面',
+            CATEGORIES: '分类',
+            TAGS: '标签',
+            UNTITLED: '(未命名)',
+        },
+        ROOT_URL: '/',
+        CONTENT_URL: '/content.json',
+    };
+    window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+})(window);
+</script>
+
+<script src="/js/insight.js"></script>
+
+
+
+
+
+
+   
+
+
+
+
+   
+    
+    <script defer>
+    var disqus_config = function () {
+        
+            this.page.url = 'https://jeff.wtf/2022/08/tens-of-thousands-of-domains-over-https/';
+        
+        this.page.identifier = 'tens-of-thousands-of-domains-over-https';
+    };
+    (function() { 
+        var d = document, s = d.createElement('script');  
+        s.src = '//' + 'shan-liang-de-jie-fu' + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+
+
+
+
+
+
+
+
+</body>
+</html>

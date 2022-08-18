@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang=zh>
+<head>
+  <meta name="google-site-verification" content="jLSaKkds3SJ5CrLC_nBgQBuTYheX3qN7bD-J_XH8vG0" />
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, minimal-ui">
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="Cache-Control" content="no-transform" />
+  <meta http-equiv="Cache-Control" content="no-siteapp" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="format-detection" content="telephone=no,email=no,adress=no">
+  <!-- Color theme for statusbar -->
+  <meta name="theme-color" content="#000000" />
+  <!-- 强制页面在当前窗口以独立页面显示,防止别人在框架里调用页面 -->
+  <meta http-equiv="window-target" content="_top" />
+  
+  
+  <title>I/O 多路复用入门——select/poll/epoll | 善良的杰夫</title>
+  <meta name="description" content="为什么要 I&#x2F;O 多路复用当需要从一个叫 r_fd 的描述符不停地读取数据，并把读到的数据写入一个叫 w_fd 的描述符时，我们可以用循环使用阻塞 I&#x2F;O ： 123while((n &#x3D; read(r_fd, buf, BUF_SIZE)) &gt; 0)    if(write(w_fd, buf, n) !&#x3D; n)        err_sys(&quot;write er">
+<meta property="og:type" content="article">
+<meta property="og:title" content="I&#x2F;O 多路复用入门——select&#x2F;poll&#x2F;epoll">
+<meta property="og:url" content="https://jeff.wtf/2017/02/IO-multiplexing/index.html">
+<meta property="og:site_name" content="善良的杰夫">
+<meta property="og:description" content="为什么要 I&#x2F;O 多路复用当需要从一个叫 r_fd 的描述符不停地读取数据，并把读到的数据写入一个叫 w_fd 的描述符时，我们可以用循环使用阻塞 I&#x2F;O ： 123while((n &#x3D; read(r_fd, buf, BUF_SIZE)) &gt; 0)    if(write(w_fd, buf, n) !&#x3D; n)        err_sys(&quot;write er">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2017-02-11T12:43:14.000Z">
+<meta property="article:modified_time" content="2022-08-16T14:08:06.498Z">
+<meta property="article:author" content="Jeff">
+<meta name="twitter:card" content="summary">
+  <!-- Canonical links -->
+  <link rel="canonical" href="https://jeff.wtf/2017/02/IO-multiplexing/index.html">
+  
+    <link rel="alternate" href="/atom.xml" title="善良的杰夫" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+<link rel="stylesheet" href="/css/typo.css">
+
+  
+  
+  
+  
+<meta name="generator" content="Hexo 6.2.0"></head>
+
+
+<body class="main-center theme-green typo" itemscope itemtype="http://schema.org/WebPage">
+  <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+  <div class="slimContent">
+    <div class="navbar-header">
+      
+      
+      <div class="profile-block text-center">
+        <a id="avatar" href="https://jeff.wtf" target="_blank">
+          <img class="img-circle img-rotate" src="/images/avatar.jpg" width="200" height="200">
+        </a>
+        <h2 id="name" class="hidden-xs hidden-sm">善良的杰夫</h2>
+        <h3 id="title" class="hidden-xs hidden-sm hidden-md">后端+运维工程师 Python/Golang/k8s</h3>
+        <small id="location" class="text-muted hidden-xs hidden-sm"><i class="icon icon-map-marker"></i> Nanjing, China</small>
+      </div>
+      
+      <div class="search" id="search-form-wrap">
+
+    <form class="search-form sidebar-form">
+        <div class="input-group">
+            <input type="text" class="search-form-input form-control" placeholder="搜索" />
+            <span class="input-group-btn">
+                <button type="submit" class="search-form-submit btn btn-flat" onclick="return false;"><i class="icon icon-search"></i></button>
+            </span>
+        </div>
+    </form>
+    <div class="ins-search">
+  <div class="ins-search-mask"></div>
+  <div class="ins-search-container">
+    <div class="ins-input-wrapper">
+      <input type="text" class="ins-search-input" placeholder="想要查找什么..." x-webkit-speech />
+      <button type="button" class="close ins-close ins-selectable" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button>
+    </div>
+    <div class="ins-section-wrapper">
+      <div class="ins-section-container"></div>
+    </div>
+  </div>
+</div>
+
+
+</div>
+      <button class="navbar-toggle collapsed" type="button" data-toggle="collapse" data-target="#main-navbar" aria-controls="main-navbar" aria-expanded="false">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+    </div>
+    <nav id="main-navbar" class="collapse navbar-collapse" itemscope itemtype="http://schema.org/SiteNavigationElement" role="navigation">
+      <ul class="nav navbar-nav main-nav ">
+        
+        
+        <li class="menu-item menu-item-home">
+          <a href="/.">
+            
+            <i class="icon icon-home-fill"></i>
+            
+            <span class="menu-title">首页</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives">
+            
+            <i class="icon icon-archives-fill"></i>
+            
+            <span class="menu-title">归档</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories">
+            
+            <i class="icon icon-folder"></i>
+            
+            <span class="menu-title">分类</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-repository">
+          <a href="/repository">
+            
+            <i class="icon icon-project"></i>
+            
+            <span class="menu-title">项目</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about">
+            
+            <i class="icon icon-cup-fill"></i>
+            
+            <span class="menu-title">关于</span>
+          </a>
+        </li>
+        
+      </ul>
+      
+	
+    <ul class="social-links">
+    	
+        <li><a href="https://github.com/sljeff" target="_blank" title="Github" data-toggle=tooltip data-placement=top><i class="icon icon-github"></i></a></li>
+        
+        <li><a href="/atom.xml" target="_blank" title="Rss" data-toggle=tooltip data-placement=top><i class="icon icon-rss"></i></a></li>
+        
+    </ul>
+
+    </nav>
+  </div>
+</header>
+
+  
+    <aside class="sidebar" itemscope itemtype="http://schema.org/WPSideBar">
+  <div class="slimContent">
+    
+      <div class="widget">
+    <h3 class="widget-title">公告</h3>
+    <div class="widget-body">
+        <div id="board">
+            <div class="content">
+                <b>一个脱离低级趣味的人</b>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">分类</h3>
+    <div class="widget-body">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/%E7%BC%96%E7%A8%8B/">编程</a><span class="category-list-count">3</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E8%AE%A1%E7%AE%97%E6%9C%BA/">计算机</a><span class="category-list-count">1</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E9%9A%8F%E7%AC%94/">随笔</a><span class="category-list-count">11</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">归档</h3>
+    <div class="widget-body">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2022/08/">八月 2022</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2021/06/">六月 2021</a><span class="archive-list-count">2</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2020/06/">六月 2020</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2020/04/">四月 2020</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/08/">八月 2018</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/07/">七月 2018</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/02/">二月 2018</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/11/">十一月 2017</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/02/">二月 2017</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2016/12/">十二月 2016</a><span class="archive-list-count">2</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2016/11/">十一月 2016</a><span class="archive-list-count">2</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2015/09/">九月 2015</a><span class="archive-list-count">1</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">最新文章</h3>
+    <div class="widget-body">
+      <ul class="recent-post-list list-unstyled no-thumbnail">
+        
+          <li>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/%E9%9A%8F%E7%AC%94/">随笔</a>
+              </p>
+              <p class="item-title">
+                <a href="/2022/08/tens-of-thousands-of-domains-over-https/" class="title">需求：给网站绑一万个域名，自动生成 HTTPS 证书</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2022-08-18T13:43:23.000Z" itemprop="datePublished">2022-08-18</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/%E9%9A%8F%E7%AC%94/">随笔</a>
+              </p>
+              <p class="item-title">
+                <a href="/2021/06/secondary-school-days-with-programming/" class="title">回忆我中学时代的技术</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2021-06-29T14:16:09.000Z" itemprop="datePublished">2021-06-29</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/%E9%9A%8F%E7%AC%94/">随笔</a>
+              </p>
+              <p class="item-title">
+                <a href="/2021/06/HDMI-DP-ZH110/" class="title">HDMI 转 DP 方案之毕亚兹 ZH110 使用评测</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2021-06-08T06:38:00.000Z" itemprop="datePublished">2021-06-08</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/%E9%9A%8F%E7%AC%94/">随笔</a>
+              </p>
+              <p class="item-title">
+                <a href="/2020/06/vscode-remote-debug/" class="title">如何使用vscode远程debug项目</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2020-06-14T11:03:45.000Z" itemprop="datePublished">2020-06-14</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/%E7%BC%96%E7%A8%8B/">编程</a>
+              </p>
+              <p class="item-title">
+                <a href="/2020/04/regression-testing/" class="title">用go重写项目之后，我们这样做回归测试</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2020-04-12T06:26:24.000Z" itemprop="datePublished">2020-04-12</time>
+              </p>
+            </div>
+          </li>
+          
+      </ul>
+    </div>
+  </div>
+  
+
+    
+  </div>
+</aside>
+
+  
+  
+<aside class="sidebar sidebar-toc collapse" id="collapseToc" itemscope itemtype="http://schema.org/WPSideBar">
+  <div class="slimContent">
+    <nav id="toc" class="article-toc">
+      <h3 class="toc-title">文章目录</h3>
+      <ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81-I-x2F-O-%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8"><span class="toc-number">1.</span> <span class="toc-text">为什么要 I&#x2F;O 多路复用</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#select"><span class="toc-number">2.</span> <span class="toc-text">select</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#poll"><span class="toc-number">3.</span> <span class="toc-text">poll</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#epoll"><span class="toc-number">4.</span> <span class="toc-text">epoll</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#epoll-create-%E7%94%A8%E6%9D%A5%E5%88%9B%E5%BB%BA%E4%B8%80%E4%B8%AA-epoll-%E6%8F%8F%E8%BF%B0%E7%AC%A6%EF%BC%9A"><span class="toc-number">4.1.</span> <span class="toc-text">epoll_create 用来创建一个 epoll 描述符：</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#epoll-ctl-%E7%94%A8%E6%9D%A5%E5%A2%9E-x2F-%E5%88%A0-x2F-%E6%94%B9%E5%86%85%E6%A0%B8%E4%B8%AD%E7%9A%84%E4%BA%8B%E4%BB%B6%E8%A1%A8%EF%BC%9A"><span class="toc-number">4.2.</span> <span class="toc-text">epoll_ctl 用来增&#x2F;删&#x2F;改内核中的事件表：</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#epoll-wait-%E7%94%A8%E6%9D%A5%E7%AD%89%E5%BE%85%E4%BA%8B%E4%BB%B6"><span class="toc-number">4.3.</span> <span class="toc-text">epoll_wait 用来等待事件</span></a></li></ol></li></ol>
+    </nav>
+  </div>
+</aside>
+
+<main class="main" role="main">
+  <div class="content">
+  <article id="post-IO-multiplexing" class="article article-type-post" itemscope itemtype="http://schema.org/BlogPosting">
+    
+    <div class="article-header">
+      
+        
+  
+    <h1 class="article-title" itemprop="name">
+      I/O 多路复用入门——select/poll/epoll
+    </h1>
+  
+
+      
+      <div class="article-meta">
+        <span class="article-date">
+    <i class="icon icon-calendar-check"></i>
+	<a href="/2017/02/IO-multiplexing/" class="article-date">
+	  <time datetime="2017-02-11T12:43:14.000Z" itemprop="datePublished">2017-02-11</time>
+	</a>
+</span>
+        
+  <span class="article-category">
+    <i class="icon icon-folder"></i>
+    <a class="article-category-link" href="/categories/%E7%BC%96%E7%A8%8B/">编程</a>
+  </span>
+
+        
+
+        
+
+        <span class="post-comment"><i class="icon icon-comment"></i> <a href="/2017/02/IO-multiplexing/#comments" class="article-comment-link">评论</a></span>
+        
+      </div>
+    </div>
+    <div class="article-entry marked-body" itemprop="articleBody">
+      
+        <h3 id="为什么要-I-x2F-O-多路复用"><a href="#为什么要-I-x2F-O-多路复用" class="headerlink" title="为什么要 I&#x2F;O 多路复用"></a>为什么要 I&#x2F;O 多路复用</h3><p>当需要从一个叫 <code>r_fd</code> 的描述符不停地读取数据，并把读到的数据写入一个叫 <code>w_fd</code> 的描述符时，我们可以用循环使用阻塞 I&#x2F;O ：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">while</span>((n = read(r_fd, buf, BUF_SIZE)) &gt; <span class="number">0</span>)</span><br><span class="line">    <span class="keyword">if</span>(write(w_fd, buf, n) != n)</span><br><span class="line">        err_sys(<span class="string">&quot;write error&quot;</span>);</span><br></pre></td></tr></table></figure>
+
+<p>但是，如果要从两个地方读取数据呢？这时，不能再使用会把程序阻塞住的 <code>read</code> 函数。因为可能在阻塞地等待 <code>r_fd1</code> 的数据时，来不及处理 <code>r_fd2</code>，已经到达的 <code>r_fd2</code> 的数据可能会丢失掉。</p>
+<p>这个情况下需要使用<strong>非阻塞 I&#x2F;O</strong>。</p>
+<p>只要做个标记，把文件描述符标记为非阻塞的，以后再对它使用 <code>read</code> 函数：如果它还没有数据可读，函数会立即返回并把 errorno 这个变量的值设置为 35，于是我们知道它没有数据可读，然后可以立马去对其他描述符使用 <code>read</code>；如果它有数据可读，我们就读取它数据。对所有要读的描述符都调用了一遍 <code>read</code> 之后，我们可以等一个较长的时间（比如几秒），然后再从第一个文件描述符开始调用 <code>read</code> 。这种循环就叫做<strong>轮询</strong>（polling）。</p>
+<p>这样，不会像使用阻塞 I&#x2F;O 时那样因为一个描述符 <code>read</code> 长时间处于等待数据而使程序阻塞。</p>
+<p>轮询的缺点是浪费太多 CPU 时间。大多数时候我们没有数据可读，但是还是用了 <code>read</code> 这个<strong>系统调用</strong>，使用系统调用时会从用户态切换到内核态。而大多数情况下我们调用 <code>read</code>，然后陷入内核态，内核发现这个描述符没有准备好，然后切换回用户态并且只得到 EAGAIN （errorno 被设置为 35），做的是无用功。描述符非常多的时候，每次的切换过程就是巨大的浪费。</p>
+<p>所以，需要 <strong>I&#x2F;O 多路复用</strong>。I&#x2F;O 多路复用通过使用一个系统函数，同时等待多个描述符的可读、可写状态。</p>
+<p>为了达到这个目的，我们需要做的是：建立一个描述符列表，以及我们分别关心它们的什么事件（可读还是可写还是发生例外情况）；调用一个系统函数，直到这个描述符列表里有至少一个描述符关联的事件发生时，这个函数才会返回。</p>
+<p>select, poll, epoll 就是这样的系统函数。</p>
+<h3 id="select"><a href="#select" class="headerlink" title="select"></a>select</h3><p>我们可以在所有 POSIX 兼容的系统里使用 select 函数来进行 I&#x2F;O 多路复用。我们需要通过 select 函数的参数传递给内核的信息有：</p>
+<ul>
+<li>我们关心哪些描述符</li>
+<li>我们关心它们的什么事件</li>
+<li>我们希望等待多长时间</li>
+</ul>
+<p>select 的返回时，内核会告诉我们：</p>
+<ul>
+<li>可读的描述符的个数</li>
+<li>哪些描述符发生了哪些事件</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">#include &lt;sys/select.h&gt;</span><br><span class="line">int select(int maxfdp1, fd_set* readfds,</span><br><span class="line">           fd_set* writefds, fd_set* exceptfds,</span><br><span class="line">           struct timeval* timeout);</span><br><span class="line"></span><br><span class="line">// 返回值: 已就绪的描述符的个数。超时时为 0 ，错误时为 -1</span><br></pre></td></tr></table></figure>
+
+<p><code>maxfdp1</code> 意思是 “max file descriptor plus 1” ，就是把你要监视的所有文件描述符里最大的那个加上 1 。（它实际上决定了内核要遍历文件描述符的次数，比如你监视了文件描述符 5 和 20 并把 <code>maxfdp1</code> 设置为 21 ，内核每次都会从描述符 0 依次检查到 20。）</p>
+<p>中间的三个参数是你想监视的文件描述符的集合。可以把 fd_set 类型视为 1024 位的二进制数，这意味着 select 只能监视小于 1024 的文件描述符（1024 是由 Linux 的 sys&#x2F;select.h 里 <code>FD_SETSIZE</code> 宏设置的值）。在 select 返回后我们通过 <code>FD_ISSET</code> 来判断代表该位的描述符是否是已准备好的状态。</p>
+<p>最后一个参数是等待超时的时长：到达这个时长但是没有任一描述符可用时，函数会返回 0 。</p>
+<p>用一个代码片段来展示 select 的用法：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 这个例子要监控文件描述符 3, 4 的可读状态，以及 4, 5 的可写状态</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 初始化两个 fd_set 以及 timeval</span></span><br><span class="line">fd_set read_set, write_set;</span><br><span class="line">FD_ZERO(read_set);</span><br><span class="line">FD_ZERO(write_set);</span><br><span class="line">timeval t;</span><br><span class="line">t.tv_sec = <span class="number">5</span>;   <span class="comment">// 超时为 5 秒</span></span><br><span class="line">t.tv_usec = <span class="number">0</span>;  <span class="comment">// 加 0 微秒</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 设置好两个 fd_set</span></span><br><span class="line"><span class="type">int</span> fd1 = <span class="number">3</span>;</span><br><span class="line"><span class="type">int</span> fd2 = <span class="number">4</span>;</span><br><span class="line"><span class="type">int</span> fd3 = <span class="number">5</span>;</span><br><span class="line"><span class="type">int</span> maxfdp1 = <span class="number">5</span> + <span class="number">1</span>;</span><br><span class="line">FD_SET(fd1, &amp;read_set);</span><br><span class="line">FD_SET(fd2, &amp;read_set);</span><br><span class="line">FD_SET(fd2, &amp;write_set);</span><br><span class="line">FD_SET(fd3, &amp;write_set);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 准备备用的 fd_set</span></span><br><span class="line">fd_set r_temp = read_set;</span><br><span class="line">fd_set w_temp = write_set;</span><br><span class="line"></span><br><span class="line"><span class="keyword">while</span>(<span class="literal">true</span>)&#123;</span><br><span class="line">    <span class="comment">// 每次都要重新设置放入 select 的 fd_set</span></span><br><span class="line">    read_set = r_temp;</span><br><span class="line">    write_set = w_temp;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 使用 select</span></span><br><span class="line">    <span class="type">int</span> n = select(maxfdp1, &amp;read_set, &amp;write_set, <span class="literal">NULL</span>, &amp;t);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 上面的 select 函数会一直阻塞，直到</span></span><br><span class="line">    <span class="comment">// 3, 4 可读以及 4, 5 可写这四件事中至少一项发生</span></span><br><span class="line">    <span class="comment">// 或者等待时间到达 5 秒，返回 0</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span>(<span class="type">int</span> i=<span class="number">0</span>; i&lt;maxfdp1 &amp;&amp; n&gt;<span class="number">0</span>; i++)&#123;</span><br><span class="line">        <span class="keyword">if</span>(FD_ISSET(i, &amp;read_set))&#123;</span><br><span class="line">            n--;</span><br><span class="line">            <span class="keyword">if</span>(i==fd1)</span><br><span class="line">                prinf(<span class="string">&quot;描述符 3 可读&quot;</span>);</span><br><span class="line">            <span class="keyword">if</span>(i==fd2)</span><br><span class="line">                prinf(<span class="string">&quot;描述符 4 可读&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span>(FD_ISSET(i, &amp;write_set))&#123;</span><br><span class="line">            n--;</span><br><span class="line">            <span class="keyword">if</span>(i==fd2)</span><br><span class="line">                prinf(<span class="string">&quot;描述符 3 可写&quot;</span>);</span><br><span class="line">            <span class="keyword">if</span>(i==fd3)</span><br><span class="line">                prinf(<span class="string">&quot;描述符 4 可写&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 上面的 printf 语句换成对应的 read 或者 write 函数就</span></span><br><span class="line">    <span class="comment">// 可以立即读取或者写入相应的描述符而不用等待</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以看到，select 的缺点有：</p>
+<ul>
+<li>默认能监视的文件描述符不能大于 1024，也代表监视的总数不超过1024。即使你因为需要监视的描述符大于 1024 而改动内核的 <code>FD_SETSIZE</code> 值，但由于 select 是每次都会线性扫描整个fd_set，集合越大速度越慢，所以性能会比较差。</li>
+<li>select 函数返回时只能看见已准备好的描述符数量，至于是哪个描述符准备好了需要循环用 <code>FD_ISSET</code> 来检查，当未准备好的描述符很多而准备好的很少时，效率比较低。</li>
+<li>select 函数每次执行的时候，都把参数里传入的三个 fd_set 从用户空间复制到内核空间。而每次 fd_set 里要监视的描述符变化不大时，全部重新复制一遍并不划算。同样在每次都是未准备好的描述符很多而准备好的很少时，调用 select 会很频繁，用户&#x2F;内核间的的数据复制就成了一个大的开销。</li>
+</ul>
+<p>还有一个问题是在代码的写法上给我一些困扰的，就是每次调用 select 前必须重新设置三个 fd_set。 fd_set 类型只是 1024 位的二进制数（实际上结构体里是几个 long 变量的数组；比如 64 位机器上 long 是 64 bit，那么 fd_set 里就是 16 个 long 变量的数组），由一位的 1 和 0 代表一个文件描述符的状态，但是其实调用 select 前后位的 1&#x2F;0 状态意义是不一样的。</p>
+<p>先讲一下几个对 fd_set 操作的函数的作用：<code>FD_ZERO</code> 把 fd_set 所有位设置为 0 ；<code>FD_SET</code> 把一个位设置为 1 ；<code>FD_ISSET</code> 判断一个位是否为 1 。</p>
+<p>调用 select 前：我们用 <code>FD_ZERO</code> 把 fd_set 先全部初始化，然后用 <code>FD_SET</code> 把我们关心的代表描述符的位设置为 1 。我们这时可以用 <code>FD_ISSET</code> 判断这个位是否被我们设置，这时的含义是<strong>我们想要监视的描述符是否被设置为被监视的状态</strong>。</p>
+<p>调用 select 时：内核判断 fd_set 里的位并把各个 fd_set 里所有值为 1 的位记录下来，然后把 fd_set 全部设置成 0 ；一个描述符上有对应的事件发生时，把对应 fd_set 里代表这个描述符的位设置为 1 。</p>
+<p>在 select 返回之后：我们同样用 <code>FD_ISSET</code> 判断各个我们关心的位是 0 还是 1 ，这时的含义是，<strong>这个位是否是发生了我们关心的事件</strong>。</p>
+<p>所以，在下一次调用 select 前，我们不得不把已经被内核改掉的 fd_set 全部重新设置一下。</p>
+<p>select 在监视大量描述符尤其是更多的描述符未准备好的情况时性能很差。《Unix 高级编程》里写，用 select 的程序通常只使用 3 到 10 个描述符。</p>
+<h3 id="poll"><a href="#poll" class="headerlink" title="poll"></a>poll</h3><p>poll 和 select 是相似的，只是给的接口不同。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;poll.h&gt;</span></span></span><br><span class="line"><span class="type">int</span> <span class="title function_">poll</span><span class="params">(<span class="keyword">struct</span> pollfd fdarray[], <span class="type">nfds_t</span> nfds, <span class="type">int</span> timeout)</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 返回值: 已就绪的描述符的个数。超时时为 0 ，错误时为 -1</span></span><br></pre></td></tr></table></figure>
+
+<p><code>fdarray</code> 是 <code>pollfd</code> 的数组。<code>pollfd</code> 结构体是这样的：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">pollfd</span> &#123;</span></span><br><span class="line">    <span class="type">int</span> fd;         <span class="comment">// 文件描述符</span></span><br><span class="line">    <span class="type">short</span> events;   <span class="comment">// 我期待的事件</span></span><br><span class="line">    <span class="type">short</span> revents;  <span class="comment">// 实际发生的事件：我期待的事件中发生的；或者异常情况</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p><code>nfds</code> 是 <code>fdarray</code> 的长度，也就是 pollfd 的个数。</p>
+<p><code>timeout</code> 代表等待超时的毫秒数。</p>
+<p>相比 select ，poll 有这些优点：由于 poll 在 pollfd 里用 <code>int fd</code> 来表示文件描述符而不像 select 里用的 fd_set 来分别表示描述符，所以没有必须小于 1024 的限制，也没有数量限制；由于 poll 用 <code>events</code> 表示期待的事件，通过修改 <code>revents</code> 来表示发生的事件，所以不需要像 select 在每次调用前重新设置描述符和期待的事件。</p>
+<p>除此之外，poll 和 select 几乎相同。在 poll 返回后，需要遍历 <code>fdarray</code> 来检查各个 <code>pollfd</code> 里的 <code>revents</code> 是否发生了期待的事件；每次调用 poll 时，把 <code>fdarray</code> 复制到内核空间。在描述符太多而每次准备好的较少时，poll 有同样的性能问题。</p>
+<h3 id="epoll"><a href="#epoll" class="headerlink" title="epoll"></a>epoll</h3><p>epoll 是在 Linux 2.5.44 中首度登场的。不像 select 和 poll ，它提供了三个系统函数而不是一个。</p>
+<h4 id="epoll-create-用来创建一个-epoll-描述符："><a href="#epoll-create-用来创建一个-epoll-描述符：" class="headerlink" title="epoll_create 用来创建一个 epoll 描述符："></a>epoll_create 用来创建一个 epoll 描述符：</h4><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;sys/epoll.h&gt;</span></span></span><br><span class="line"><span class="type">int</span> <span class="title function_">epoll_create</span><span class="params">(<span class="type">int</span> size)</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 返回值：epoll 描述符</span></span><br></pre></td></tr></table></figure>
+
+<p><code>size</code> 用来告诉内核你想监视的文件描述符的数目，但是它<strong>并不是限制了能监视的描述符的最大个数</strong>，而是给内核最初分配的空间一个建议。然后系统会在内核中分配一个空间来存放事件表，并返回一个 <strong>epoll 描述符</strong>，用来操作这个事件表。</p>
+<h4 id="epoll-ctl-用来增-x2F-删-x2F-改内核中的事件表："><a href="#epoll-ctl-用来增-x2F-删-x2F-改内核中的事件表：" class="headerlink" title="epoll_ctl 用来增&#x2F;删&#x2F;改内核中的事件表："></a>epoll_ctl 用来增&#x2F;删&#x2F;改内核中的事件表：</h4><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">epoll_ctl</span><span class="params">(<span class="type">int</span> epfd, <span class="type">int</span> op, <span class="type">int</span> fd, <span class="keyword">struct</span> epoll_event *event)</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 返回值：成功时返回 0 ，失败时返回 -1</span></span><br></pre></td></tr></table></figure>
+
+<p><code>epfd</code> 是 epoll 描述符。</p>
+<p><code>op</code> 是操作类型（增加&#x2F;删除&#x2F;修改）。</p>
+<p><code>fd</code> 是希望监视的文件描述符。</p>
+<p><code>event</code> 是一个 epoll_event 结构体的指针。epoll_event 的定义是这样的：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">union</span> <span class="title">epoll_data</span> &#123;</span></span><br><span class="line">   <span class="type">void</span>        *ptr;</span><br><span class="line">   <span class="type">int</span>          fd;</span><br><span class="line">   <span class="type">uint32_t</span>     u32;</span><br><span class="line">   <span class="type">uint64_t</span>     u64;</span><br><span class="line">&#125; <span class="type">epoll_data_t</span>;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">epoll_event</span> &#123;</span></span><br><span class="line">   <span class="type">uint32_t</span>     events;      <span class="comment">// 我期待的事件</span></span><br><span class="line">   <span class="type">epoll_data_t</span> data;        <span class="comment">// 用户数据变量</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>这个结构体里，除了期待的事件外，还有一个 <code>data</code> ，是一个 union，它是用来让我们在得到下面第三个函数的返回值以后方便的定位文件描述符的。</p>
+<h4 id="epoll-wait-用来等待事件"><a href="#epoll-wait-用来等待事件" class="headerlink" title="epoll_wait 用来等待事件"></a>epoll_wait 用来等待事件</h4><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">epoll_wait</span><span class="params">(<span class="type">int</span> epfd, <span class="keyword">struct</span> epoll_event *result_events,</span></span><br><span class="line"><span class="params">              <span class="type">int</span> maxevents, <span class="type">int</span> timeout)</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 返回值：已就绪的描述符个数。超时时为 0 ，错误时为 -1</span></span><br></pre></td></tr></table></figure>
+
+<p><code>epfd</code> 是 epoll 描述符。</p>
+<p><code>result_events</code> 是 epoll_event 结构体的指针，它将指向的是所有已经准备好的事件描述符相关联的 epoll_event（在上个步骤里调用 epoll_ctl 时关联起来的）。下面的例子可以让你知道这个参数的意义。</p>
+<p><code>maxevents</code> 是返回的最大事件个数，也就是你能通过 result_events 指针遍历到的最大的次数。</p>
+<p><code>timeout</code> 是等待超时的毫秒数。</p>
+<p>用一个代码片段来展示 epoll 的用法：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 这个例子要监控文件描述符 3, 4 的可读状态，以及 4, 5 的可写状态</span></span><br><span class="line"></span><br><span class="line"><span class="comment">/* 通过 epoll_create 创建 epoll 描述符 */</span></span><br><span class="line"><span class="type">int</span> epfd = epoll_create(<span class="number">4</span>);</span><br><span class="line"></span><br><span class="line"><span class="type">int</span> fd1 = <span class="number">3</span>;</span><br><span class="line"><span class="type">int</span> fd2 = <span class="number">4</span>;</span><br><span class="line"><span class="type">int</span> fd3 = <span class="number">5</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">/* 通过 epoll_ctl 注册好四个事件 */</span></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">epoll_event</span> <span class="title">ev1</span>;</span></span><br><span class="line">ev1.events = EPOLLIN;      <span class="comment">// 期待它的可读事件发生</span></span><br><span class="line">ev1.data   = fd1;          <span class="comment">// 我们通常就把 data 设置为 fd ，方便以后查看</span></span><br><span class="line">epoll_ctl(epfd, EPOLL_CTL_ADD, fd1, &amp;ev1);  <span class="comment">// 添加到事件表</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">epoll_event</span> <span class="title">ev2</span>;</span></span><br><span class="line">ev2.events = EPOLLIN;</span><br><span class="line">ev2.data   = fd2;</span><br><span class="line">epoll_ctl(epfd, EPOLL_CTL_ADD, fd2, &amp;ev2);</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">epoll_event</span> <span class="title">ev3</span>;</span></span><br><span class="line">ev3.events = EPOLLOUT;     <span class="comment">// 期待它的可写事件发生</span></span><br><span class="line">ev3.data   = fd2;</span><br><span class="line">epoll_ctl(epfd, EPOLL_CTL_ADD, fd2, &amp;ev3);</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">epoll_event</span> <span class="title">ev4</span>;</span></span><br><span class="line">ev4.events = EPOLLOUT;</span><br><span class="line">ev4.data   = fd3;</span><br><span class="line">epoll_ctl(epfd, EPOLL_CTL_ADD, fd3, &amp;ev4);</span><br><span class="line"></span><br><span class="line"><span class="comment">/* 通过 epoll_wait 等待事件 */</span></span><br><span class="line"># DEFINE MAXEVENTS <span class="number">4</span></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">epoll_event</span> <span class="title">result_events</span>[<span class="title">MAXEVENTS</span>];</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">while</span>(<span class="literal">true</span>)&#123;</span><br><span class="line">    <span class="type">int</span> n = epoll_wait(epfd, &amp;result_events, MAXEVENTS, <span class="number">5000</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span>(<span class="type">int</span> i=<span class="number">0</span>; i&lt;n; n--)&#123;</span><br><span class="line">        <span class="comment">// result_events[i] 一定是 ev1 到 ev4 中的一个</span></span><br><span class="line">        <span class="keyword">if</span>(result_events[i].events&amp;EPOLLIN)</span><br><span class="line">            <span class="built_in">printf</span>(<span class="string">&quot;描述符 %d 可读&quot;</span>, result_events[i].fd);</span><br><span class="line">        <span class="keyword">else</span> <span class="keyword">if</span>(result_events[i].events&amp;EPOLLOUT)</span><br><span class="line">            <span class="built_in">printf</span>(<span class="string">&quot;描述符 %d 可写&quot;</span>, result_events[i].fd)</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>所以 epoll 解决了 poll 和 select 的问题：</p>
+<ul>
+<li><p>只在 epoll_ctl 的时候把数据复制到内核空间，这保证了每个描述符和事件一定只会被复制到内核空间一次；每次调用 epoll_wait 都不会复制新数据到内核空间。相比之下，select 每次调用都会把三个 fd_set 复制一遍；poll 每次调用都会把 <code>fdarray</code> 复制一遍。</p>
+</li>
+<li><p>epoll_wait 返回 n ，那么只需要做 n 次循环，可以保证遍历的每一次都是有意义的。相比之下，select 需要做至少 n 次至多 <code>maxfdp1</code> 次循环；poll 需要遍历完 fdarray 即做 <code>nfds</code> 次循环。</p>
+</li>
+<li><p>在内部实现上，epoll 使用了回调的方法。调用 epoll_ctl 时，就是注册了一个事件：在集合中放入文件描述符以及事件数据，并且加上一个回调函数。一旦文件描述符上的对应事件发生，就会调用回调函数，这个函数会把这个文件描述符加入到<strong>就绪队列</strong>上。当你调用 epoll_wait 时，它只是在查看就绪队列上是否有内容，有的话就返回给你的程序。<code>select()</code> <code>poll()</code> <code>epoll_wait()</code> 三个函数在操作系统看来，都是睡眠一会儿然后判断一会儿的循环，但是 select 和 poll 在醒着的时候要遍历整个文件描述符集合，而 epoll_wait 只是看看就绪队列是否为空而已。这是 epoll 高性能的理由，使得其 I&#x2F;O 的效率不会像使用轮询的 select&#x2F;poll 随着描述符增加而大大降低。</p>
+</li>
+</ul>
+<blockquote>
+<p>注 1 ：select&#x2F;poll&#x2F;epoll_wait 三个函数的等待超时时间都有一样的特性：等待时间设置为 0 时函数不阻塞而是立即返回，不论是否有文件描述符已准备好；poll&#x2F;epoll_wait 中的 timeout 为 -1，select 中的 timeout 为 NULL 时，则无限等待，直到有描述符已准备好才会返回。</p>
+</blockquote>
+<blockquote>
+<p>注 2 ：有的新手会把文件描述符是否标记为阻塞 I&#x2F;O 等同于 I&#x2F;O 多路复用函数是否阻塞。其实文件描述符是否标记为阻塞，决定了你 <code>read</code> 或 <code>write</code> 它时如果它未准备好是阻塞等待，还是立即返回 EAGAIN ；而 I&#x2F;O 多路复用函数除非你把 timeout 设置为 0 ，否则它总是会阻塞住你的程序。</p>
+</blockquote>
+<blockquote>
+<p>注 3 ：上面的例子只是入门，可能是不准确或不全面的：一是数据要立即处理防止丢失；二是 EPOLLIN&#x2F;EPOLLOUT 不完全等同于可读可写事件，具体要去搜索 poll&#x2F;epoll 的事件具体有哪些；三是大多数实际例子里，比如一个 tcp server ，都会在运行中不断增加&#x2F;删除的文件描述符而不是记住固定的 3 4 5 几个描述符（用这种例子更能看出 epoll 的优势）；四是 epoll 的优势更多的体现在处理大量闲连接的情况，如果场景是处理少量短连接，用 select 反而更好，而且用 select 的代码能运行在所有平台上。</p>
+</blockquote>
+
+      
+    </div>
+    <div class="article-footer">
+      <!--
+<blockquote class="mt-2x">
+  <ul class="post-copyright list-unstyled">
+    
+    <li class="post-copyright-link hidden-xs">
+      <strong>本文链接：</strong>
+      <a href="https://jeff.wtf/2017/02/IO-multiplexing/" title="I/O 多路复用入门——select/poll/epoll" target="_blank" rel="external">https://jeff.wtf/2017/02/IO-multiplexing/</a>
+    </li>
+    
+    <li class="post-copyright-license">
+      <strong>版权声明： </strong> 本博客所有文章除特别声明外，均采用 <a href="http://creativecommons.org/licenses/by/4.0/deed.zh" target="_blank" rel="external">CC BY 4.0 CN协议</a> 许可协议。转载请注明出处！
+    </li>
+  </ul>
+</blockquote>
+-->
+
+
+<div class="panel panel-default panel-badger">
+  <div class="panel-body">
+    <figure class="media">
+      <div class="media-left">
+        <a href="https://jeff.wtf" target="_blank" class="img-burn thumb-sm visible-lg">
+          <img src="/images/avatar.jpg" class="img-rounded w-full" alt="">
+        </a>
+      </div>
+      <div class="media-body">
+        <h4 class="media-heading"><a href="https://jeff.wtf" target="_blank"><span class="text-dark">善良的杰夫</span><small class="ml-1x">后端+运维工程师 Python/Golang/k8s</small></a></h4>
+        <small>一个脱离低级趣味的人。</small>
+      </div>
+    </figure>
+  </div>
+</div>
+
+
+    </div>
+  </article>
+  
+    
+  <section id="comments">
+  	
+      <div id="disqus_thread">
+        <noscript>Please enable JavaScript to view the <a target="_blank" rel="noopener" href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+      </div>
+    
+  </section>
+
+
+  
+</div>
+
+  <nav class="bar bar-footer clearfix" data-stick-bottom>
+  <div class="bar-inner">
+  
+  <ul class="pager pull-left">
+    
+    <li class="prev">
+      <a href="/2017/11/jeff-wtf-first/" title="jeff.wtf的第一篇文章"><i class="icon icon-angle-left" aria-hidden="true"></i><span>&nbsp;&nbsp;上一篇</span></a>
+    </li>
+    
+    
+    <li class="next">
+      <a href="/2016/12/diogenes/" title="老人的囤积综合征"><span>下一篇&nbsp;&nbsp;</span><i class="icon icon-angle-right" aria-hidden="true"></i></a>
+    </li>
+    
+    
+    <li class="toggle-toc">
+      <a class="toggle-btn collapsed" data-toggle="collapse" href="#collapseToc" aria-expanded="false" title="文章目录" role="button">
+        <span>[&nbsp;</span><span>文章目录</span>
+        <i class="text-collapsed icon icon-anchor"></i>
+        <i class="text-in icon icon-close"></i>
+        <span>]</span>
+      </a>
+    </li>
+    
+  </ul>
+  
+  
+  
+  <div class="bar-right">
+    
+    <div class="share-component" data-sites="weibo,qq,wechat,facebook,twitter" data-mobile-sites="weibo,qq,qzone"></div>
+    
+  </div>
+  </div>
+</nav>
+  
+
+
+
+</main>
+
+  <footer class="footer" itemscope itemtype="http://schema.org/WPFooter">
+	
+	
+    <ul class="social-links">
+    	
+        <li><a href="https://github.com/sljeff" target="_blank" title="Github" data-toggle=tooltip data-placement=top><i class="icon icon-github"></i></a></li>
+        
+        <li><a href="/atom.xml" target="_blank" title="Rss" data-toggle=tooltip data-placement=top><i class="icon icon-rss"></i></a></li>
+        
+    </ul>
+
+    <div class="copyright">
+    	
+        <div class="publishby">
+        	Theme by <a href="https://github.com/cofess" target="_blank"> cofess </a>base on <a href="https://github.com/cofess/hexo-theme-pure" target="_blank">pure</a>.
+        </div>
+    </div>
+</footer>
+  <script src="//cdn.jsdelivr.net/npm/jquery@1.12.4/dist/jquery.min.js"></script>
+<script>
+window.jQuery || document.write('<script src="js/jquery.min.js"><\/script>')
+</script>
+
+<script src="/js/plugin.min.js"></script>
+
+
+<script src="/js/application.js"></script>
+
+
+    <script>
+(function (window) {
+    var INSIGHT_CONFIG = {
+        TRANSLATION: {
+            POSTS: '文章',
+            PAGES: '页面',
+            CATEGORIES: '分类',
+            TAGS: '标签',
+            UNTITLED: '(未命名)',
+        },
+        ROOT_URL: '/',
+        CONTENT_URL: '/content.json',
+    };
+    window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+})(window);
+</script>
+
+<script src="/js/insight.js"></script>
+
+
+
+
+
+
+   
+
+
+
+
+   
+    
+    <script defer>
+    var disqus_config = function () {
+        
+            this.page.url = 'https://jeff.wtf/2017/02/IO-multiplexing/';
+        
+        this.page.identifier = 'IO-multiplexing';
+    };
+    (function() { 
+        var d = document, s = d.createElement('script');  
+        s.src = '//' + 'shan-liang-de-jie-fu' + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+
+
+
+
+
+
+
+
+</body>
+</html>

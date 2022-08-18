@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang=zh>
+<head>
+  <meta name="google-site-verification" content="jLSaKkds3SJ5CrLC_nBgQBuTYheX3qN7bD-J_XH8vG0" />
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, minimal-ui">
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="Cache-Control" content="no-transform" />
+  <meta http-equiv="Cache-Control" content="no-siteapp" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="format-detection" content="telephone=no,email=no,adress=no">
+  <!-- Color theme for statusbar -->
+  <meta name="theme-color" content="#000000" />
+  <!-- 强制页面在当前窗口以独立页面显示,防止别人在框架里调用页面 -->
+  <meta http-equiv="window-target" content="_top" />
+  
+  
+  <title>用go重写项目之后，我们这样做回归测试 | 善良的杰夫</title>
+  <meta name="description" content="讲讲效果先讲讲从python-&gt;go重写项目的最终结论：在高峰期统计总资源使用量，算出重写后的go版相比重写前的python版CPU使用下降了74%，内存使用下降了94%。 不过重写一个项目，在写代码这件事本身结束以后，从检查新代码正确性一直到最后上线还有一段漫长的过程。本文就记录了我们这一段过程的实践。 术语和业务的背景先介绍背景。我们有一个流量较大的grpc服务，本文暂且给它取代号叫做a">
+<meta property="og:type" content="article">
+<meta property="og:title" content="用go重写项目之后，我们这样做回归测试">
+<meta property="og:url" content="https://jeff.wtf/2020/04/regression-testing/index.html">
+<meta property="og:site_name" content="善良的杰夫">
+<meta property="og:description" content="讲讲效果先讲讲从python-&gt;go重写项目的最终结论：在高峰期统计总资源使用量，算出重写后的go版相比重写前的python版CPU使用下降了74%，内存使用下降了94%。 不过重写一个项目，在写代码这件事本身结束以后，从检查新代码正确性一直到最后上线还有一段漫长的过程。本文就记录了我们这一段过程的实践。 术语和业务的背景先介绍背景。我们有一个流量较大的grpc服务，本文暂且给它取代号叫做a">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://jeff.wtf/abc-before.png">
+<meta property="og:image" content="https://jeff.wtf/mirror-api.png">
+<meta property="og:image" content="https://jeff.wtf/mirror-rpc.png">
+<meta property="og:image" content="https://jeff.wtf/envoy-before.png">
+<meta property="og:image" content="https://jeff.wtf/envoy-after.png">
+<meta property="og:image" content="https://jeff.wtf/envoy-after-2.png">
+<meta property="article:published_time" content="2020-04-12T06:26:24.000Z">
+<meta property="article:modified_time" content="2022-08-16T14:08:06.498Z">
+<meta property="article:author" content="Jeff">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://jeff.wtf/abc-before.png">
+  <!-- Canonical links -->
+  <link rel="canonical" href="https://jeff.wtf/2020/04/regression-testing/index.html">
+  
+    <link rel="alternate" href="/atom.xml" title="善良的杰夫" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+<link rel="stylesheet" href="/css/typo.css">
+
+  
+  
+  
+  
+<meta name="generator" content="Hexo 6.2.0"></head>
+
+
+<body class="main-center theme-green typo" itemscope itemtype="http://schema.org/WebPage">
+  <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+  <div class="slimContent">
+    <div class="navbar-header">
+      
+      
+      <div class="profile-block text-center">
+        <a id="avatar" href="https://jeff.wtf" target="_blank">
+          <img class="img-circle img-rotate" src="/images/avatar.jpg" width="200" height="200">
+        </a>
+        <h2 id="name" class="hidden-xs hidden-sm">善良的杰夫</h2>
+        <h3 id="title" class="hidden-xs hidden-sm hidden-md">后端+运维工程师 Python/Golang/k8s</h3>
+        <small id="location" class="text-muted hidden-xs hidden-sm"><i class="icon icon-map-marker"></i> Nanjing, China</small>
+      </div>
+      
+      <div class="search" id="search-form-wrap">
+
+    <form class="search-form sidebar-form">
+        <div class="input-group">
+            <input type="text" class="search-form-input form-control" placeholder="搜索" />
+            <span class="input-group-btn">
+                <button type="submit" class="search-form-submit btn btn-flat" onclick="return false;"><i class="icon icon-search"></i></button>
+            </span>
+        </div>
+    </form>
+    <div class="ins-search">
+  <div class="ins-search-mask"></div>
+  <div class="ins-search-container">
+    <div class="ins-input-wrapper">
+      <input type="text" class="ins-search-input" placeholder="想要查找什么..." x-webkit-speech />
+      <button type="button" class="close ins-close ins-selectable" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button>
+    </div>
+    <div class="ins-section-wrapper">
+      <div class="ins-section-container"></div>
+    </div>
+  </div>
+</div>
+
+
+</div>
+      <button class="navbar-toggle collapsed" type="button" data-toggle="collapse" data-target="#main-navbar" aria-controls="main-navbar" aria-expanded="false">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+    </div>
+    <nav id="main-navbar" class="collapse navbar-collapse" itemscope itemtype="http://schema.org/SiteNavigationElement" role="navigation">
+      <ul class="nav navbar-nav main-nav ">
+        
+        
+        <li class="menu-item menu-item-home">
+          <a href="/.">
+            
+            <i class="icon icon-home-fill"></i>
+            
+            <span class="menu-title">首页</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives">
+            
+            <i class="icon icon-archives-fill"></i>
+            
+            <span class="menu-title">归档</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories">
+            
+            <i class="icon icon-folder"></i>
+            
+            <span class="menu-title">分类</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-repository">
+          <a href="/repository">
+            
+            <i class="icon icon-project"></i>
+            
+            <span class="menu-title">项目</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about">
+            
+            <i class="icon icon-cup-fill"></i>
+            
+            <span class="menu-title">关于</span>
+          </a>
+        </li>
+        
+      </ul>
+      
+	
+    <ul class="social-links">
+    	
+        <li><a href="https://github.com/sljeff" target="_blank" title="Github" data-toggle=tooltip data-placement=top><i class="icon icon-github"></i></a></li>
+        
+        <li><a href="/atom.xml" target="_blank" title="Rss" data-toggle=tooltip data-placement=top><i class="icon icon-rss"></i></a></li>
+        
+    </ul>
+
+    </nav>
+  </div>
+</header>
+
+  
+    <aside class="sidebar" itemscope itemtype="http://schema.org/WPSideBar">
+  <div class="slimContent">
+    
+      <div class="widget">
+    <h3 class="widget-title">公告</h3>
+    <div class="widget-body">
+        <div id="board">
+            <div class="content">
+                <b>一个脱离低级趣味的人</b>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">分类</h3>
+    <div class="widget-body">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/%E7%BC%96%E7%A8%8B/">编程</a><span class="category-list-count">3</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E8%AE%A1%E7%AE%97%E6%9C%BA/">计算机</a><span class="category-list-count">1</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E9%9A%8F%E7%AC%94/">随笔</a><span class="category-list-count">11</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">归档</h3>
+    <div class="widget-body">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2022/08/">八月 2022</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2021/06/">六月 2021</a><span class="archive-list-count">2</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2020/06/">六月 2020</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2020/04/">四月 2020</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/08/">八月 2018</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/07/">七月 2018</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2018/02/">二月 2018</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/11/">十一月 2017</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2017/02/">二月 2017</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2016/12/">十二月 2016</a><span class="archive-list-count">2</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2016/11/">十一月 2016</a><span class="archive-list-count">2</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2015/09/">九月 2015</a><span class="archive-list-count">1</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">最新文章</h3>
+    <div class="widget-body">
+      <ul class="recent-post-list list-unstyled no-thumbnail">
+        
+          <li>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/%E9%9A%8F%E7%AC%94/">随笔</a>
+              </p>
+              <p class="item-title">
+                <a href="/2022/08/tens-of-thousands-of-domains-over-https/" class="title">需求：给网站绑一万个域名，自动生成 HTTPS 证书</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2022-08-18T13:43:23.000Z" itemprop="datePublished">2022-08-18</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/%E9%9A%8F%E7%AC%94/">随笔</a>
+              </p>
+              <p class="item-title">
+                <a href="/2021/06/secondary-school-days-with-programming/" class="title">回忆我中学时代的技术</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2021-06-29T14:16:09.000Z" itemprop="datePublished">2021-06-29</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/%E9%9A%8F%E7%AC%94/">随笔</a>
+              </p>
+              <p class="item-title">
+                <a href="/2021/06/HDMI-DP-ZH110/" class="title">HDMI 转 DP 方案之毕亚兹 ZH110 使用评测</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2021-06-08T06:38:00.000Z" itemprop="datePublished">2021-06-08</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/%E9%9A%8F%E7%AC%94/">随笔</a>
+              </p>
+              <p class="item-title">
+                <a href="/2020/06/vscode-remote-debug/" class="title">如何使用vscode远程debug项目</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2020-06-14T11:03:45.000Z" itemprop="datePublished">2020-06-14</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/%E7%BC%96%E7%A8%8B/">编程</a>
+              </p>
+              <p class="item-title">
+                <a href="/2020/04/regression-testing/" class="title">用go重写项目之后，我们这样做回归测试</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2020-04-12T06:26:24.000Z" itemprop="datePublished">2020-04-12</time>
+              </p>
+            </div>
+          </li>
+          
+      </ul>
+    </div>
+  </div>
+  
+
+    
+  </div>
+</aside>
+
+  
+  
+<aside class="sidebar sidebar-toc collapse" id="collapseToc" itemscope itemtype="http://schema.org/WPSideBar">
+  <div class="slimContent">
+    <nav id="toc" class="article-toc">
+      <h3 class="toc-title">文章目录</h3>
+      <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AE%B2%E8%AE%B2%E6%95%88%E6%9E%9C"><span class="toc-number">1.</span> <span class="toc-text">讲讲效果</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%AF%E8%AF%AD%E5%92%8C%E4%B8%9A%E5%8A%A1%E7%9A%84%E8%83%8C%E6%99%AF"><span class="toc-number">2.</span> <span class="toc-text">术语和业务的背景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B5%8B%E8%AF%95%E7%9A%84%E8%83%8C%E6%99%AF"><span class="toc-number">3.</span> <span class="toc-text">测试的背景</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8D%95%E5%85%83%E6%B5%8B%E8%AF%95%E2%9D%8E"><span class="toc-number">3.1.</span> <span class="toc-text">单元测试❎</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8abc-py%E7%9A%84%E5%8D%95%E5%85%83%E6%B5%8B%E8%AF%95%E4%BB%A3%E7%A0%81%E6%9D%A5%E6%B5%8B%E8%AF%95abc-go%E2%9D%8E"><span class="toc-number">3.2.</span> <span class="toc-text">使用abc-py的单元测试代码来测试abc-go❎</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%9B%9E%E5%BD%92%E6%B5%8B%E8%AF%95"><span class="toc-number">3.3.</span> <span class="toc-text">回归测试</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E9%BB%91%E7%9B%92%E6%B5%8B%E8%AF%95%E2%9D%8E"><span class="toc-number">3.3.1.</span> <span class="toc-text">黑盒测试❎</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E9%95%9C%E5%83%8F%E6%B5%81%E9%87%8F%E2%9C%85%EF%B8%8F"><span class="toc-number">3.3.2.</span> <span class="toc-text">镜像流量✅️</span></a></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A4%8D%E5%88%B6%E6%B5%81%E9%87%8F%E6%96%B9%E6%A1%88"><span class="toc-number">4.</span> <span class="toc-text">复制流量方案</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#envoy-diffy%E2%9D%8E"><span class="toc-number">4.1.</span> <span class="toc-text">envoy + diffy❎</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#envoy-%E5%AF%B9%E6%AF%94grpc%E5%93%8D%E5%BA%94%E2%9C%85%EF%B8%8F"><span class="toc-number">4.2.</span> <span class="toc-text">envoy + 对比grpc响应✅️</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%81%B0%E5%BA%A6%E4%B8%8A%E7%BA%BF"><span class="toc-number">5.</span> <span class="toc-text">灰度上线</span></a></li></ol>
+    </nav>
+  </div>
+</aside>
+
+<main class="main" role="main">
+  <div class="content">
+  <article id="post-regression-testing" class="article article-type-post" itemscope itemtype="http://schema.org/BlogPosting">
+    
+    <div class="article-header">
+      
+        
+  
+    <h1 class="article-title" itemprop="name">
+      用go重写项目之后，我们这样做回归测试
+    </h1>
+  
+
+      
+      <div class="article-meta">
+        <span class="article-date">
+    <i class="icon icon-calendar-check"></i>
+	<a href="/2020/04/regression-testing/" class="article-date">
+	  <time datetime="2020-04-12T06:26:24.000Z" itemprop="datePublished">2020-04-12</time>
+	</a>
+</span>
+        
+  <span class="article-category">
+    <i class="icon icon-folder"></i>
+    <a class="article-category-link" href="/categories/%E7%BC%96%E7%A8%8B/">编程</a>
+  </span>
+
+        
+
+        
+
+        <span class="post-comment"><i class="icon icon-comment"></i> <a href="/2020/04/regression-testing/#comments" class="article-comment-link">评论</a></span>
+        
+      </div>
+    </div>
+    <div class="article-entry marked-body" itemprop="articleBody">
+      
+        <h2 id="讲讲效果"><a href="#讲讲效果" class="headerlink" title="讲讲效果"></a>讲讲效果</h2><p>先讲讲从python-&gt;go重写项目的最终结论：在高峰期统计总资源使用量，算出重写后的go版相比重写前的python版CPU使用下降了74%，内存使用下降了94%。</p>
+<p>不过重写一个项目，在写代码这件事本身结束以后，从检查新代码正确性一直到最后上线还有一段漫长的过程。本文就记录了我们这一段过程的实践。</p>
+<h2 id="术语和业务的背景"><a href="#术语和业务的背景" class="headerlink" title="术语和业务的背景"></a>术语和业务的背景</h2><p>先介绍背景。我们有一个流量较大的grpc服务，本文暂且给它取代号叫做abc。用python和go实现的版本我们把它叫做abc-py和abc-go。</p>
+<ul>
+<li>abc原本是一个python编写的grpc项目，主要使用了我们的grpc框架<a target="_blank" rel="noopener" href="https://github.com/shanbay/sea">sea</a></li>
+<li>abc实现了数个grpc的servicer，每个servicer都可以对应HTTP&#x2F;2的一个path。这次我们重写实现了其中一个grpc servicer，对应的path我们把它叫做<code>/abc.Abc/</code>；没有用go重写的部分的path都统一起来叫做<code>/abc.XXX/</code></li>
+<li>k8s集群里其他应用请求grpc服务时，都要经envoy做HTTP&#x2F;2的反向代理</li>
+</ul>
+<p>结构图简化如下：</p>
+<p><img src="/abc-before.png"></p>
+<h2 id="测试的背景"><a href="#测试的背景" class="headerlink" title="测试的背景"></a>测试的背景</h2><h3 id="单元测试❎"><a href="#单元测试❎" class="headerlink" title="单元测试❎"></a>单元测试❎</h3><p>我们对比着python代码用go重写了项目以后，会照着新代码以及我们理解的业务逻辑来写新的单元测试。</p>
+<p>但仅仅使用单元测试是不够的，因为：</p>
+<ul>
+<li>单元测试能覆盖的场景有限</li>
+<li>单元测试本质上是白盒测试，重写的单元测试代码和重写的业务代码有一样的问题：<ul>
+<li>会受到已经写过的代码的影响</li>
+<li>会受到逻辑理解的影响</li>
+</ul>
+</li>
+</ul>
+<p>单元测试没有问题的情况下我们也不能放心让代码上线。</p>
+<h3 id="使用abc-py的单元测试代码来测试abc-go❎"><a href="#使用abc-py的单元测试代码来测试abc-go❎" class="headerlink" title="使用abc-py的单元测试代码来测试abc-go❎"></a>使用abc-py的单元测试代码来测试abc-go❎</h3><p>理想情况下，如果能直接使用旧代码的单元测试来测新代码，就不会受到新代码和我们理解错误的影响。</p>
+<p>但单元测试本身就受到代码的影响，比如python的单元测试里我们使用了框架自带的测试组件、要给对象进行mock等；写go的单元测试前我们就要考虑代码的可测试性，测试这件事对代码本身就是有侵入的。</p>
+<p>如果要对原来的单元测试代码进行大量修改，也就必然改动逻辑了。这个方案并不可行。</p>
+<h3 id="回归测试"><a href="#回归测试" class="headerlink" title="回归测试"></a>回归测试</h3><p>不知道定义上是否准确，但根据维基的解释，重写代码并且保证正确性的这种场景我们需要的是「回归测试」。</p>
+<h4 id="黑盒测试❎"><a href="#黑盒测试❎" class="headerlink" title="黑盒测试❎"></a>黑盒测试❎</h4><p>首先我们考虑的是一种和单元测试类似的编写方法：同样覆盖所有功能，但以黑盒测试的角度编写代码。然后使用这个黑盒测试代码测试处在同样环境下的abc-py和abc-go的两个服务，不论我们理解的逻辑如何，只要两边结果完全相同，就可以认为验证成功。</p>
+<p>但：</p>
+<ul>
+<li>相比复杂的用户场景，这个方案能覆盖的场景非常有限</li>
+<li>这样的回归测试方案不能重复使用，我们以后还要迁移很多python项目到go，都要编写只用一次的黑盒测试代码</li>
+</ul>
+<p>于是写黑盒测试代码这种方案也不适合我们。</p>
+<h4 id="镜像流量✅️"><a href="#镜像流量✅️" class="headerlink" title="镜像流量✅️"></a>镜像流量✅️</h4><p>最终我们考虑使用这样的方案：</p>
+<ul>
+<li>首先代码的单元测试是用于验证逻辑错误</li>
+<li>其次功能自测和QA的测试能验证功能是否正确</li>
+<li>最后直接在生产环境部署abc-go服务但并不给用户直接访问，而是把abc-py的流量完全复制一份到abc-go，一段时间后检查每个请求发到abc-py和abc-go得到的响应是否完全一致</li>
+</ul>
+<p>其中最重要的是第三步复制流量的方案。</p>
+<h2 id="复制流量方案"><a href="#复制流量方案" class="headerlink" title="复制流量方案"></a>复制流量方案</h2><h3 id="envoy-diffy❎"><a href="#envoy-diffy❎" class="headerlink" title="envoy + diffy❎"></a>envoy + diffy❎</h3><p>由于我们的流量都经过了envoy，使用它的request_mirror_policy可以很容易的镜像每一个请求。</p>
+<p>而要分析大量的请求和响应，我们找到了<a target="_blank" rel="noopener" href="https://github.com/opendiffy/diffy">diffy</a>这个工具。它一开始由twitter维护、目前由opendiffy这个GitHub组织维护。</p>
+<p>他的功能是可以把一个HTTP请求发往两个地方，并且比较和统计他们的输出；在对比结果里也可以方便的选择忽略一部分请求、忽略某个字段、忽略一定百分比内的内容不一致等等，还是比较强大。</p>
+<p>然而它并不支持解析对比grpc的流量，所以我们只能修改了一个提供http接口、功能和abc-py相同的项目（这里把它叫做abc-api），把他自己的逻辑去掉，改为调用abc-go的grpc接口。然后做了镜像流量，最终结构如下：</p>
+<p><img src="/mirror-api.png"></p>
+<p>看到结构图以后可以发现，这样的方案明显非常不合理，而我们仅仅是为了用上diffy这个现成的工具就引入了更复杂更不可控的环节：</p>
+<ul>
+<li>我们又修改了一个项目的代码逻辑（abc-api）</li>
+<li>envoy复制了一份流量之后diffy又会复制一份，现在abc-api项目的流量*3</li>
+<li>我们仅仅因为abc-api和abc-py功能类似就认为两者逻辑等效，实际上并非如此，我们应该只对比abc-py和abc-go</li>
+<li>由于有非幂等的请求，我们必须让三份流量的非幂等逻辑各自独立。主要就是写数据库的部分，abc-api&#x2F;复制的abc-api&#x2F;调用abc-go的abc-api三者各自连接了独立的数据库。并且在上线前我们要保证三者完全同步，然后在上线diffy的同时关掉同步。</li>
+</ul>
+<p>于是乎结果就是diffy看到了大量的不一致，但我们无法直接判断不一致是abc-go的问题还是我们修改abc-api引入的新问题。这个方案不可行。</p>
+<h3 id="envoy-对比grpc响应✅️"><a href="#envoy-对比grpc响应✅️" class="headerlink" title="envoy + 对比grpc响应✅️"></a>envoy + 对比grpc响应✅️</h3><p>吸取了上面的经验之后，我们明白请求过程的结构越简单、代码改动越少越好。而对比响应内容带来的复杂性应该被放到这个结构以外，甚至可以离线来做。最终，我们选择使用envoy镜像grpc流量：</p>
+<p><img src="/mirror-rpc.png"></p>
+<ul>
+<li>我们配置了envoy的路由，当path为&#x2F;abc.Abc&#x2F;时，请求照旧发到abc-py，但是会镜像一份流量到新部署的abc-go服务</li>
+<li>abc-py和abc-go连接着各自独立的数据库，在镜像流量前两个数据库保持同步</li>
+<li>我们编写了python和go版本的middleware，用来给输入输入以及req_id等数据进行打点。打点数据将会被收集到我们的elasticsearch</li>
+</ul>
+<p>这个方案在结构上，相比一开始只多出一份abc-go的服务；在代码上，相比一开始只多了一个打点的middleware。</p>
+<p>对比响应的方式则是我们定时从elasticsearch拉数据，编写了一个脚本用来对比数据中同一个req_id的两次请求结果是否一致。这个脚本用到了<a target="_blank" rel="noopener" href="https://github.com/inveniosoftware/dictdiffer">dictdiffer</a>这个库，功能只是对比响应内容是否一致以及忽略字段等，和业逻辑无关，所以其他业务做回归测试时一样可以使用。</p>
+<p>这样「镜像流量-&gt;对比结果-&gt;修复代码」过程反复多次以后，我们最终能做到一段时间内每个请求abc-py和abc-go都有完全一样的响应。</p>
+<h2 id="灰度上线"><a href="#灰度上线" class="headerlink" title="灰度上线"></a>灰度上线</h2><p>上面的步骤都做完，做到abc-go和abc-py响应完全一致以后，我们还是不能直接替换。为了避免没有想到的情况发生，我们必须灰度上线。</p>
+<p>不过这次灰度上线比以往复杂一些，并不能直接用abc-go一个一个替换abc-py。为了解释更清楚，需要先介绍下之前的envoy配置的路由方案，大致可以简化为（实际上envoy并不像下图一样直接调用k8s的service）：</p>
+<p><img src="/envoy-before.png"></p>
+<ul>
+<li>请求进来时，如果请求头的authority为abc-rpc，根据我们的配置，envoy会取到k8s里名为abc-py的这个service对应的pod ip，随机发往其中一个。</li>
+</ul>
+<p>而我们的abc-go只实现了所有authority为abc-rpc的请求里path为<code>/abc.Abc/</code>的这一部分，如果直接用abc-go替换abc-py会有一些请求未实现。</p>
+<p>因此我们的灰度要分为两个步骤来做：</p>
+<ul>
+<li>一：创建新的svc，让<code>/abc.Abc/</code>的请求走到这个新的svc。新svc对应的pod依然是abc-py</li>
+<li>二：一个一个替换掉它们为abc-go</li>
+</ul>
+<p><img src="/envoy-after.png"></p>
+<p>上图就是步骤一完成之后的效果。此时所有的请求都没有受到影响，因为并没有abc-go的代码上线。这时我们只要一个一个替换掉abc-py-1&#x2F;2&#x2F;3为abc-go的代码，就能实现灰度上线。</p>
+<p><img src="/envoy-after-2.png"></p>
+<p>最终新svc背后的pod都替换成abc-go的代码，项目上线成功。</p>
+
+      
+    </div>
+    <div class="article-footer">
+      <!--
+<blockquote class="mt-2x">
+  <ul class="post-copyright list-unstyled">
+    
+    <li class="post-copyright-link hidden-xs">
+      <strong>本文链接：</strong>
+      <a href="https://jeff.wtf/2020/04/regression-testing/" title="用go重写项目之后，我们这样做回归测试" target="_blank" rel="external">https://jeff.wtf/2020/04/regression-testing/</a>
+    </li>
+    
+    <li class="post-copyright-license">
+      <strong>版权声明： </strong> 本博客所有文章除特别声明外，均采用 <a href="http://creativecommons.org/licenses/by/4.0/deed.zh" target="_blank" rel="external">CC BY 4.0 CN协议</a> 许可协议。转载请注明出处！
+    </li>
+  </ul>
+</blockquote>
+-->
+
+
+<div class="panel panel-default panel-badger">
+  <div class="panel-body">
+    <figure class="media">
+      <div class="media-left">
+        <a href="https://jeff.wtf" target="_blank" class="img-burn thumb-sm visible-lg">
+          <img src="/images/avatar.jpg" class="img-rounded w-full" alt="">
+        </a>
+      </div>
+      <div class="media-body">
+        <h4 class="media-heading"><a href="https://jeff.wtf" target="_blank"><span class="text-dark">善良的杰夫</span><small class="ml-1x">后端+运维工程师 Python/Golang/k8s</small></a></h4>
+        <small>一个脱离低级趣味的人。</small>
+      </div>
+    </figure>
+  </div>
+</div>
+
+
+    </div>
+  </article>
+  
+    
+  <section id="comments">
+  	
+      <div id="disqus_thread">
+        <noscript>Please enable JavaScript to view the <a target="_blank" rel="noopener" href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+      </div>
+    
+  </section>
+
+
+  
+</div>
+
+  <nav class="bar bar-footer clearfix" data-stick-bottom>
+  <div class="bar-inner">
+  
+  <ul class="pager pull-left">
+    
+    <li class="prev">
+      <a href="/2020/06/vscode-remote-debug/" title="如何使用vscode远程debug项目"><i class="icon icon-angle-left" aria-hidden="true"></i><span>&nbsp;&nbsp;上一篇</span></a>
+    </li>
+    
+    
+    <li class="next">
+      <a href="/2018/08/the-critics/" title="批评者和被批评者的消亡"><span>下一篇&nbsp;&nbsp;</span><i class="icon icon-angle-right" aria-hidden="true"></i></a>
+    </li>
+    
+    
+    <li class="toggle-toc">
+      <a class="toggle-btn collapsed" data-toggle="collapse" href="#collapseToc" aria-expanded="false" title="文章目录" role="button">
+        <span>[&nbsp;</span><span>文章目录</span>
+        <i class="text-collapsed icon icon-anchor"></i>
+        <i class="text-in icon icon-close"></i>
+        <span>]</span>
+      </a>
+    </li>
+    
+  </ul>
+  
+  
+  
+  <div class="bar-right">
+    
+    <div class="share-component" data-sites="weibo,qq,wechat,facebook,twitter" data-mobile-sites="weibo,qq,qzone"></div>
+    
+  </div>
+  </div>
+</nav>
+  
+
+
+
+</main>
+
+  <footer class="footer" itemscope itemtype="http://schema.org/WPFooter">
+	
+	
+    <ul class="social-links">
+    	
+        <li><a href="https://github.com/sljeff" target="_blank" title="Github" data-toggle=tooltip data-placement=top><i class="icon icon-github"></i></a></li>
+        
+        <li><a href="/atom.xml" target="_blank" title="Rss" data-toggle=tooltip data-placement=top><i class="icon icon-rss"></i></a></li>
+        
+    </ul>
+
+    <div class="copyright">
+    	
+        <div class="publishby">
+        	Theme by <a href="https://github.com/cofess" target="_blank"> cofess </a>base on <a href="https://github.com/cofess/hexo-theme-pure" target="_blank">pure</a>.
+        </div>
+    </div>
+</footer>
+  <script src="//cdn.jsdelivr.net/npm/jquery@1.12.4/dist/jquery.min.js"></script>
+<script>
+window.jQuery || document.write('<script src="js/jquery.min.js"><\/script>')
+</script>
+
+<script src="/js/plugin.min.js"></script>
+
+
+<script src="/js/application.js"></script>
+
+
+    <script>
+(function (window) {
+    var INSIGHT_CONFIG = {
+        TRANSLATION: {
+            POSTS: '文章',
+            PAGES: '页面',
+            CATEGORIES: '分类',
+            TAGS: '标签',
+            UNTITLED: '(未命名)',
+        },
+        ROOT_URL: '/',
+        CONTENT_URL: '/content.json',
+    };
+    window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+})(window);
+</script>
+
+<script src="/js/insight.js"></script>
+
+
+
+
+
+
+   
+
+
+
+
+   
+    
+    <script defer>
+    var disqus_config = function () {
+        
+            this.page.url = 'https://jeff.wtf/2020/04/regression-testing/';
+        
+        this.page.identifier = 'regression-testing';
+    };
+    (function() { 
+        var d = document, s = d.createElement('script');  
+        s.src = '//' + 'shan-liang-de-jie-fu' + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+
+
+
+
+
+
+
+
+</body>
+</html>
