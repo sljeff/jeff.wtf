@@ -27,7 +27,7 @@
 <meta property="og:description" content="先解决标题党的问题 实际需求和标题有些差异，但很难在一个短标题里描述出完整的需求。先把这个标题相关的问题解决好了。  如果是一万个已知的域名，想要给他们批量签证书：例如已经存在一个域名列表（听起来有点灰产）。那么需要做的应该是：  用脚本批量给他们做好 DNS 解析 比如都解析到 IP w.x.y.z   在 w.x.y.z 起服务，用来做 HTTP Challenge 启动一个 cert-man">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2022-08-18T13:43:23.000Z">
-<meta property="article:modified_time" content="2022-08-18T16:36:18.938Z">
+<meta property="article:modified_time" content="2022-08-18T16:40:10.998Z">
 <meta property="article:author" content="Jeff">
 <meta name="twitter:card" content="summary">
   <!-- Canonical links -->
@@ -63,7 +63,7 @@
         </a>
         <h2 id="name" class="hidden-xs hidden-sm">善良的杰夫</h2>
         <h3 id="title" class="hidden-xs hidden-sm hidden-md">后端+运维工程师 Python/Golang/k8s</h3>
-        <small id="location" class="text-muted hidden-xs hidden-sm"><i class="icon icon-map-marker"></i> Nanjing, China</small>
+        <small id="location" class="text-muted hidden-xs hidden-sm"><i class="icon icon-map-marker"></i> Hubei, China</small>
       </div>
       
       <div class="search" id="search-form-wrap">
@@ -494,7 +494,7 @@
 <li>用户可以产生自定义的二级域名如 <code>jeff.xlog.app</code></li>
 </ul>
 <p>这就意味着所有用户都会产生一个二级域名；如果我们给每个二级域名都单独签发一个证书，好像浪费有点多。</p>
-<p>更合理的做法是给 *.xlog.app 签发泛域名证。但是泛域名证书需要 DNS-challenge（证明整个域名的所有权），因此我们要更新 caddy 配置：</p>
+<p>更合理的做法是给 *.xlog.app 签发泛域名证书。但是泛域名证书需要 DNS-challenge（证明整个域名的所有权），因此我们要更新 caddy 配置：</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 需要把 xlog.app 的 dns 服务商的插件也加进去编译，以便签发和续期泛域名证书</span></span><br><span class="line">xcaddy build --with github.com/gamalan/caddy-tlsredis --with github.com/caddy-dns/cloudflare</span><br></pre></td></tr></table></figure>
 
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"># Caddyfile 中间加这一段匹配，让其余的走到 :80, :443</span><br><span class="line"></span><br><span class="line">xlog.app, *.xlog.app &#123;</span><br><span class="line">        tls &#123;</span><br><span class="line">                dns cloudflare &#123;env.CF_API_TOKEN&#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        reverse_proxy 127.0.0.1:3000</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
