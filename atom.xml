@@ -334,16 +334,17 @@
     <link href="https://jeff.wtf/2016/11/get-bilibili-user/"/>
     <id>https://jeff.wtf/2016/11/get-bilibili-user/</id>
     <published>2016-11-19T13:15:10.000Z</published>
-    <updated>2022-08-16T14:08:06.498Z</updated>
+    <updated>2022-08-18T17:12:52.558Z</updated>
     
-    <content type="html"><![CDATA[<p>当你打开一个视频页面的源代码，可以找到某一行，在播放器的位置，有一个 cid 参数。<br><img src="/source_code.png"></p><p>B 站发送的请求里也可以看到弹幕请求：<br><img src="/danmu_list.png"></p><p>请求弹幕的地址是<code>http://comment.bilibili.com/看到的cid.xml</code></p><p>弹幕信息的内容：<br><code>&lt;d p=&quot;时间,模式,字体大小,颜色,时间戳,弹幕池,？？？,弹幕ID&quot;&gt;内容&lt;/d&gt;</code>。</p><p>从这里并不能看到用户的 ID 。上面？？？的部分应该是用户 ID 的某种 hash 。</p><p>测试一下。我的B站空间是 <a href="http://space.bilibili.com/4764287/">http://space.bilibili.com/4764287/</a> ，其中 <code>4764287</code> 是我的 ID 。在弹幕列表找到自己发过的弹幕，？？？部分是 <code>01da63f0</code> 。</p><p>经过一些测试，<strong>最后发现 <code>4764287</code> 经过 CRC32b hash 结果是 <code>f063da01</code> ，而储存在弹幕信息里的值是 <code>01da63f0</code> 。也就是说，弹幕信息？？？部分是用户 ID CRC32b 之后得到的结果按每两位一组倒序排列的结果。</strong></p><p>所以，已知弹幕信息，想逆向找到发弹幕的用户，需要有所有用户 ID 的 CRC32b 彩虹表（现在 B 站用户 ID 为 1 到接近 60, 000, 000）即可。</p><p>而且已经有人做了这件事：<a href="https://danmu.fuckbilibili.com/">https://danmu.fuckbilibili.com/</a></p>]]></content>
+    <content type="html"><![CDATA[<p>当你打开一个视频页面的源代码，可以找到某一行，在播放器的位置，有一个 cid 参数。</p><p><img src="/2016/11/get-bilibili-user/source_code.png"></p><p>B 站发送的请求里也可以看到弹幕请求：</p><p><img src="/2016/11/get-bilibili-user/danmu_list.png"></p><p>请求弹幕的地址是<code>http://comment.bilibili.com/看到的cid.xml</code></p><p>弹幕信息的内容：<br><code>&lt;d p=&quot;时间,模式,字体大小,颜色,时间戳,弹幕池,？？？,弹幕ID&quot;&gt;内容&lt;/d&gt;</code>。</p><p>从这里并不能看到用户的 ID 。上面？？？的部分应该是用户 ID 的某种 hash 。</p><p>测试一下。我的B站空间是 <a href="http://space.bilibili.com/4764287/">http://space.bilibili.com/4764287/</a> ，其中 <code>4764287</code> 是我的 ID 。在弹幕列表找到自己发过的弹幕，？？？部分是 <code>01da63f0</code> 。</p><p>经过一些测试，<strong>最后发现 <code>4764287</code> 经过 CRC32b hash 结果是 <code>f063da01</code> ，而储存在弹幕信息里的值是 <code>01da63f0</code> 。也就是说，弹幕信息？？？部分是用户 ID CRC32b 之后得到的结果按每两位一组倒序排列的结果。</strong></p><p>所以，已知弹幕信息，想逆向找到发弹幕的用户，需要有所有用户 ID 的 CRC32b 彩虹表（现在 B 站用户 ID 为 1 到接近 60, 000, 000）即可。</p><p>而且已经有人做了这件事：<a href="https://danmu.fuckbilibili.com/">https://danmu.fuckbilibili.com/</a></p>]]></content>
     
     
       
       
-    <summary type="html">&lt;p&gt;当你打开一个视频页面的源代码，可以找到某一行，在播放器的位置，有一个 cid 参数。&lt;br&gt;&lt;img src=&quot;/source_code.png&quot;&gt;&lt;/p&gt;
-&lt;p&gt;B 站发送的请求里也可以看到弹幕请求：&lt;br&gt;&lt;img src=&quot;/danmu_list.png&quot;&gt;&lt;/p&gt;
-</summary>
+    <summary type="html">&lt;p&gt;当你打开一个视频页面的源代码，可以找到某一行，在播放器的位置，有一个 cid 参数。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/2016/11/get-bilibili-user/source_code.png&quot;&gt;&lt;/p&gt;
+&lt;p&gt;B 站发送的请求里也可以看到弹幕请求：&lt;/p&gt;
+&lt;</summary>
       
     
     
