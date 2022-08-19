@@ -2,6 +2,24 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   
   <url>
+    <loc>https://jeff.wtf/2018/08/the-critics/</loc>
+    
+    <lastmod>2022-08-19</lastmod>
+    
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://jeff.wtf/2020/04/regression-testing/</loc>
+    
+    <lastmod>2022-08-19</lastmod>
+    
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
     <loc>https://jeff.wtf/2016/11/get-bilibili-user/</loc>
     
     <lastmod>2022-08-18</lastmod>
@@ -48,15 +66,6 @@
   
   <url>
     <loc>https://jeff.wtf/2015/09/rock-roast-chicken/</loc>
-    
-    <lastmod>2022-08-16</lastmod>
-    
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  
-  <url>
-    <loc>https://jeff.wtf/2018/08/the-critics/</loc>
     
     <lastmod>2022-08-16</lastmod>
     
@@ -155,15 +164,6 @@
   </url>
   
   <url>
-    <loc>https://jeff.wtf/2020/04/regression-testing/</loc>
-    
-    <lastmod>2022-08-16</lastmod>
-    
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  
-  <url>
     <loc>https://jeff.wtf/404.html</loc>
     
     <lastmod>2022-08-16</lastmod>
@@ -175,7 +175,7 @@
 
   <url>
     <loc>https://jeff.wtf/</loc>
-    <lastmod>2022-08-18</lastmod>
+    <lastmod>2022-08-19</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
@@ -185,21 +185,21 @@
   
   <url>
     <loc>https://jeff.wtf/categories/%E9%9A%8F%E7%AC%94/</loc>
-    <lastmod>2022-08-18</lastmod>
+    <lastmod>2022-08-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.2</priority>
   </url>
   
   <url>
     <loc>https://jeff.wtf/categories/%E7%BC%96%E7%A8%8B/</loc>
-    <lastmod>2022-08-18</lastmod>
+    <lastmod>2022-08-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.2</priority>
   </url>
   
   <url>
     <loc>https://jeff.wtf/categories/%E8%AE%A1%E7%AE%97%E6%9C%BA/</loc>
-    <lastmod>2022-08-18</lastmod>
+    <lastmod>2022-08-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.2</priority>
   </url>
