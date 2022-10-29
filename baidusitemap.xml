@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
+    <loc>https://jeff.wtf/2022/10/funny-debug/</loc>
+    <lastmod>2022-10-29</lastmod>
+  </url>
+  <url>
+    <loc>https://jeff.wtf/2016/11/local-var-in-python-closure/</loc>
+    <lastmod>2022-10-18</lastmod>
+  </url>
+  <url>
     <loc>https://jeff.wtf/2018/08/the-critics/</loc>
     <lastmod>2022-08-19</lastmod>
   </url>
@@ -14,10 +22,6 @@
   </url>
   <url>
     <loc>https://jeff.wtf/2021/06/secondary-school-days-with-programming/</loc>
-    <lastmod>2022-08-18</lastmod>
-  </url>
-  <url>
-    <loc>https://jeff.wtf/2016/11/local-var-in-python-closure/</loc>
     <lastmod>2022-08-18</lastmod>
   </url>
   <url>
